@@ -47,12 +47,12 @@
 quality:ruff-check:
   extends: .quality_base
   script:
-    - uv run ruff check scripts/ train.py main.py
+    - uv run ruff check
 
 quality:ruff-format:
   extends: .quality_base
   script:
-    - uv run ruff format --check scripts/ train.py main.py
+    - uv run ruff format --check
 
 quality:pyright:
   extends: .quality_base

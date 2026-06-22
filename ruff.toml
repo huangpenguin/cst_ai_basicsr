@@ -1,6 +1,19 @@
 line-length = 120
 target-version = "py310"
 
+# Only lint/format MLOps GPU inference paths; upstream BasicSR scripts are out of scope.
+include = [
+  "scripts/battery_tiff_io.py",
+  "scripts/ci_gpu_smoke.py",
+  "scripts/data_paths.py",
+  "scripts/download_swinir_release.py",
+  "scripts/smoke_test_swinir_gray_dn.py",
+  "scripts/smoke_test_swinir_gray_dn_battery.py",
+  "scripts/swinir_gray_dn_infer.py",
+  "train.py",
+  "main.py",
+]
+
 [lint]
 select = ["E", "F", "B", "I"]
 
