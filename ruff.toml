@@ -1,0 +1,13 @@
+line-length = 120
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "B", "I"]
+
+[lint.per-file-ignores]
+"scripts/ci_gpu_smoke.py" = ["E402"]
+"scripts/smoke_test_swinir_gray_dn.py" = ["E402"]
+"scripts/smoke_test_swinir_gray_dn_battery.py" = ["E402"]
+
+[format]
+line-ending = "lf"

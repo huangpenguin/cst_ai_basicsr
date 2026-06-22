@@ -1,0 +1,38 @@
+# 根 CI 编排文件：定义全局 pipeline 行为，具体 job 拆到 .gitlab/ci/ 下。
+# GitLab 会在 push / MR 时读取本文件并创建 pipeline。
+#
+#   quality.yml  → 共享 Runner（ruff / pyright，push 自动）
+#   train.yml    → Docker executor GPU（gpu_smoke / run_inference，手动；数据靠 runner volumes 挂载）
+#   gpu.yml      → 已弃用（shell executor 方案，Docker-only 可忽略）
+
+default:
+  interruptible: true
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+stages:
+  - quality
+  - deploy
+
+variables:
+  FF_USE_FASTZIP: "true"
+  UV_LINK_MODE: copy
+  # Host NFS bind sources (runner config.toml; committed so jobs never miss them)
+  DATA_MOUNT_SOURCE: "/mnt/data"
+  HOME_MOUNT_SOURCE: "/mnt/home"
+  # Container-side paths (mapped by runner: $DATA_MOUNT_SOURCE→/data, $HOME_MOUNT_SOURCE→/home)
+  DATA_DIR: "/data"
+  PROJECT_NAME: "cst_ai"
+  WORK_DIR: "/home/${GITLAB_USER_LOGIN}"
+
+include:
+  - local: .gitlab/ci/quality.yml
+  - local: .gitlab/ci/train.yml

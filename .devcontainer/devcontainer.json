@@ -1,0 +1,45 @@
+{
+  "name": "AI MLOps GPU Template",
+  "build": {
+    "context": "..",
+    "dockerfile": "../Dockerfile"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "initializeCommand": "ls /mnt/data >/dev/null && ls /mnt/home >/dev/null && test -d /mnt/data && test -d /mnt/home || (echo 'ERROR: /mnt/data and /mnt/home must exist on the Docker host (autofs).' >&2 && exit 1)",
+  "mounts": [
+    "source=/mnt/data,target=/data,type=bind",
+    "source=/mnt/home,target=/home,type=bind"
+  ],
+  "runArgs": [
+    "--gpus",
+    "all",
+    "--shm-size",
+    "16g"
+  ],
+  "containerEnv": {
+    "PYTHONUNBUFFERED": "1",
+    "UV_LINK_MODE": "copy",
+    "DATA_MOUNT_SOURCE": "/mnt/data",
+    "HOME_MOUNT_SOURCE": "/mnt/home",
+    "DATA_DIR": "/data",
+    "PROJECT_NAME": "cst_ai",
+    "WORK_DIR": "/home/huang"
+  },
+  "postCreateCommand": "if [ -f pyproject.toml ]; then uv sync --dev; fi",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/conda/bin/python",
+        "python.terminal.activateEnvironment": false
+      }
+    }
+  }
+}
