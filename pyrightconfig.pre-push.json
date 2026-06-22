@@ -1,8 +1,6 @@
 {
   "typeCheckingMode": "basic",
-  "exclude": [
-    ".venv",
-    "__pycache__",
-    ".git"
-  ]
+  "include": ["scripts", "train.py", "main.py"],
+  "exclude": [".venv", "__pycache__", ".git"],
+  "reportMissingImports": "none"
 }
