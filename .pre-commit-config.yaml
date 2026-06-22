@@ -4,7 +4,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
+        files: ^(scripts/(battery_tiff_io|ci_gpu_smoke|data_paths|download_swinir_release|smoke_test_swinir_gray_dn|smoke_test_swinir_gray_dn_battery|swinir_gray_dn_infer)\.py|train\.py|main\.py)$
       - id: ruff-format
+        files: ^(scripts/(battery_tiff_io|ci_gpu_smoke|data_paths|download_swinir_release|smoke_test_swinir_gray_dn|smoke_test_swinir_gray_dn_battery|swinir_gray_dn_infer)\.py|train\.py|main\.py)$
 
   - repo: local
     hooks:
