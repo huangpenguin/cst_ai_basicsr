@@ -194,10 +194,6 @@ train_cylinderblock_swinir_graydn:
         fi
       done
 
-      # #region agent log
-      printf '%s\n' "{\"sessionId\":\"c42c65\",\"runId\":\"train-job\",\"hypothesisId\":\"A\",\"location\":\"train.yml:dataset_probe\",\"message\":\"paired dataset probe\",\"data\":{\"dataset_ready\":${dataset_ready},\"train_dataset_dir\":\"${TRAIN_DATASET_DIR}\",\"raw_data_root\":\"${TRAIN_RAW_DATA_ROOT}\",\"raw_data_exists\":$([ -d \"${TRAIN_RAW_DATA_ROOT}\" ] && echo true || echo false)},\"timestamp\":$(date +%s000)}"
-      # #endregion
-
       if [[ "${dataset_ready}" != "true" ]]; then
         if [[ ! -d "${TRAIN_RAW_DATA_ROOT}" ]]; then
           echo "ERROR: paired dataset missing and raw data root not found: ${TRAIN_RAW_DATA_ROOT}" >&2
