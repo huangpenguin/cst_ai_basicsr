@@ -25,6 +25,7 @@ variables:
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   TRAIN_COMMAND: "python train.py"
   TRAIN_DATASET_DIR: "/home/${GITLAB_USER_LOGIN}/cst_ai/datasets/swinir_cylinderblock_paired"
+  TRAIN_RAW_DATA_ROOT: "/data/${PROJECT_NAME}/data_0607"
   TRAIN_EXPERIMENTS_ROOT: "/home/${GITLAB_USER_LOGIN}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/experiments"
   TRAIN_NPROC_PER_NODE: "4"
   TRAIN_MASTER_PORT: "4331"
@@ -173,22 +174,47 @@ train_cylinderblock_swinir_graydn:
     - |
       set -euo pipefail
       echo "TRAIN_DATASET_DIR=${TRAIN_DATASET_DIR}"
+      echo "TRAIN_RAW_DATA_ROOT=${TRAIN_RAW_DATA_ROOT}"
       echo "TRAIN_EXPERIMENTS_ROOT=${TRAIN_EXPERIMENTS_ROOT}"
       echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
 
-      for path in \
-        "${TRAIN_DATASET_DIR}/train/LQ" \
-        "${TRAIN_DATASET_DIR}/train/GT" \
-        "${TRAIN_DATASET_DIR}/val/LQ" \
-        "${TRAIN_DATASET_DIR}/val/GT" \
-        "${TRAIN_DATASET_DIR}/normalization.json"; do
+      required_paths=(
+        "${TRAIN_DATASET_DIR}/train/LQ"
+        "${TRAIN_DATASET_DIR}/train/GT"
+        "${TRAIN_DATASET_DIR}/val/LQ"
+        "${TRAIN_DATASET_DIR}/val/GT"
+        "${TRAIN_DATASET_DIR}/normalization.json"
+      )
+
+      dataset_ready=true
+      for path in "${required_paths[@]}"; do
         if [[ ! -e "${path}" ]]; then
-          echo "ERROR: required dataset path missing: ${path}" >&2
-          echo "Preprocess on the GPU host, e.g.:" >&2
-          echo "  python scripts/preprocess_cylinderblock_swinir.py \\" >&2
-          echo "    --data-root /mnt/data/cst_ai/data_0607 \\" >&2
-          echo "    --output-root ${TRAIN_DATASET_DIR} \\" >&2
-          echo "    --overwrite" >&2
+          dataset_ready=false
+          break
+        fi
+      done
+
+      # #region agent log
+      printf '%s\n' "{\"sessionId\":\"c42c65\",\"runId\":\"train-job\",\"hypothesisId\":\"A\",\"location\":\"train.yml:dataset_probe\",\"message\":\"paired dataset probe\",\"data\":{\"dataset_ready\":${dataset_ready},\"train_dataset_dir\":\"${TRAIN_DATASET_DIR}\",\"raw_data_root\":\"${TRAIN_RAW_DATA_ROOT}\",\"raw_data_exists\":$([ -d \"${TRAIN_RAW_DATA_ROOT}\" ] && echo true || echo false)},\"timestamp\":$(date +%s000)}"
+      # #endregion
+
+      if [[ "${dataset_ready}" != "true" ]]; then
+        if [[ ! -d "${TRAIN_RAW_DATA_ROOT}" ]]; then
+          echo "ERROR: paired dataset missing and raw data root not found: ${TRAIN_RAW_DATA_ROOT}" >&2
+          echo "Mount /mnt/data on the GPU runner and ensure ${TRAIN_RAW_DATA_ROOT} exists in the job container." >&2
+          exit 1
+        fi
+
+        echo "Paired dataset not found under ${TRAIN_DATASET_DIR}; running preprocess..."
+        python scripts/preprocess_cylinderblock_swinir.py \
+          --data-root "${TRAIN_RAW_DATA_ROOT}" \
+          --output-root "${TRAIN_DATASET_DIR}" \
+          --overwrite
+      fi
+
+      for path in "${required_paths[@]}"; do
+        if [[ ! -e "${path}" ]]; then
+          echo "ERROR: required dataset path still missing after preprocess: ${path}" >&2
           exit 1
         fi
       done
