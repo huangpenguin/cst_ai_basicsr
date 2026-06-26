@@ -247,7 +247,7 @@ train_cylinderblock_swinir_graydn:
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
 
       python scripts/download_swinir_release.py --only 004_grayDN
-      python -m torch.distributed.launch \
+      torchrun --use-env \
         --nproc_per_node="${TRAIN_NPROC_PER_NODE}" \
         --master_port="${TRAIN_MASTER_PORT}" \
         basicsr/train.py \
