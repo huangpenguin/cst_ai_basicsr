@@ -247,6 +247,12 @@ train_cylinderblock_swinir_graydn:
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
 
       echo "CI_COMMIT_SHA=${CI_COMMIT_SHA}"
+      echo "GIT_CHECKOUT_SHA=$(git rev-parse HEAD)"
+      if grep -q -- '--use-env' .gitlab/ci/train.yml; then
+        echo "ERROR: train.yml in this checkout still uses --use-env (removed in 8277276)." >&2
+        echo "Do NOT Retry this pipeline. GitLab → main → Run pipeline, then run train_cylinderblock_swinir_graydn." >&2
+        exit 1
+      fi
       uv pip install -e . --no-deps
       python -c "import inspect; from basicsr.utils import options as o; assert hasattr(o, '_strip_local_rank_argv'); print('options_module', inspect.getfile(o)); print('local_rank_fix_ok')"
 
