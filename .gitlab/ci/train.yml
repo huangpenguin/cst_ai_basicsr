@@ -60,7 +60,6 @@ variables:
       files:
         - pyproject.toml
         - uv.lock
-        - requirements.txt
     paths:
       - .venv/
       - .cache/uv/
