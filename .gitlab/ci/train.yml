@@ -9,7 +9,8 @@
 # - runner executor: docker
 # - runner tags: linux, docker, gpu
 # - /etc/gitlab-runner/config.toml: [runners.docker] gpus = "all"
-# - 数据盘建议由 runner volumes 挂载，例如 /mnt/data:/data:ro
+# - volumes 建议:
+#     ["/cache", "/mnt/data:/data:ro", "/mnt/home:/home:rw"]
 #
 # 本模板不在 CI 脚本里执行 docker build / docker run；项目依赖由 job 内 uv 同步，
 # 或者后续改用已经构建好并推送到 registry 的项目镜像。
@@ -20,8 +21,30 @@ variables:
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
   UV_LINK_MODE: copy
   DATA_DIR: "/data"
-  SMOKE_COMMAND: "python train.py"
+  PROJECT_NAME: "cst_ai"
+  SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   TRAIN_COMMAND: "python train.py"
+  TRAIN_DATASET_DIR: "/home/${GITLAB_USER_LOGIN}/cst_ai/datasets/swinir_cylinderblock_paired"
+  TRAIN_EXPERIMENTS_ROOT: "/home/${GITLAB_USER_LOGIN}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/experiments"
+  TRAIN_NPROC_PER_NODE: "4"
+  TRAIN_MASTER_PORT: "4331"
+  TRAIN_CYLINDERBLOCK_COMMAND: >-
+    python scripts/download_swinir_release.py --only 004_grayDN &&
+    python -m torch.distributed.launch
+    --nproc_per_node=${TRAIN_NPROC_PER_NODE}
+    --master_port=${TRAIN_MASTER_PORT}
+    basicsr/train.py
+    -opt options/train/SwinIR/train_SwinIR_grayDN_cylinderblock.yml
+    --launcher pytorch
+    --auto_resume
+    --force_yml
+    datasets:train:dataroot_lq=${TRAIN_DATASET_DIR}/train/LQ
+    datasets:train:dataroot_gt=${TRAIN_DATASET_DIR}/train/GT
+    datasets:train:normalization=${TRAIN_DATASET_DIR}/normalization.json
+    datasets:val:dataroot_lq=${TRAIN_DATASET_DIR}/val/LQ
+    datasets:val:dataroot_gt=${TRAIN_DATASET_DIR}/val/GT
+    datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json
+    path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}
 
 .gpu_docker_base:
   stage: deploy
@@ -41,6 +64,7 @@ variables:
     paths:
       - .venv/
       - .cache/uv/
+      - experiments/pretrained_models/SwinIR/
     policy: pull-push
   before_script:
     - |
@@ -50,6 +74,8 @@ variables:
       echo "Runner tags: ${CI_RUNNER_TAGS:-unknown}"
       echo "GPU image: ${MLOPS_GPU_IMAGE}"
       echo "DATA_DIR: ${DATA_DIR}"
+      echo "PROJECT_NAME: ${PROJECT_NAME}"
+      echo "GITLAB_USER_LOGIN: ${GITLAB_USER_LOGIN:-unknown}"
 
       if ! command -v nvidia-smi >/dev/null 2>&1; then
         echo "ERROR: nvidia-smi not found inside the job container." >&2
@@ -98,6 +124,22 @@ variables:
           raise SystemExit("CUDA is not available inside the GitLab Docker executor job container")
       PY
 
+.gpu_train_artifacts:
+  after_script:
+    - |
+      set -euo pipefail
+      if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
+        mkdir -p "${CI_PROJECT_DIR}/results"
+        rm -rf "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn"
+        cp -a "${TRAIN_EXPERIMENTS_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn/" || true
+        echo "Staged training artifacts from ${TRAIN_EXPERIMENTS_ROOT}"
+      fi
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - results/cylinderblock_swinir_graydn/
+
 gpu_smoke:
   extends: .gpu_docker_base
   timeout: 30m
@@ -119,3 +161,39 @@ run_training:
       allow_failure: true
   script:
     - bash -lc "${TRAIN_COMMAND}"
+
+train_cylinderblock_swinir_graydn:
+  extends:
+    - .gpu_docker_base
+    - .gpu_train_artifacts
+  timeout: 48h
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      set -euo pipefail
+      echo "TRAIN_DATASET_DIR=${TRAIN_DATASET_DIR}"
+      echo "TRAIN_EXPERIMENTS_ROOT=${TRAIN_EXPERIMENTS_ROOT}"
+      echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
+
+      for path in \
+        "${TRAIN_DATASET_DIR}/train/LQ" \
+        "${TRAIN_DATASET_DIR}/train/GT" \
+        "${TRAIN_DATASET_DIR}/val/LQ" \
+        "${TRAIN_DATASET_DIR}/val/GT" \
+        "${TRAIN_DATASET_DIR}/normalization.json"; do
+        if [[ ! -e "${path}" ]]; then
+          echo "ERROR: required dataset path missing: ${path}" >&2
+          echo "Preprocess on the GPU host, e.g.:" >&2
+          echo "  python scripts/preprocess_cylinderblock_swinir.py \\" >&2
+          echo "    --data-root /mnt/data/cst_ai/data_0607 \\" >&2
+          echo "    --output-root ${TRAIN_DATASET_DIR} \\" >&2
+          echo "    --overwrite" >&2
+          exit 1
+        fi
+      done
+
+      mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
+      bash -lc "${TRAIN_CYLINDERBLOCK_COMMAND}"
