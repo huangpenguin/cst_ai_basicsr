@@ -246,6 +246,10 @@ train_cylinderblock_swinir_graydn:
 
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
 
+      echo "CI_COMMIT_SHA=${CI_COMMIT_SHA}"
+      uv pip install -e . --no-deps
+      python -c "import inspect; from basicsr.utils import options as o; assert hasattr(o, '_strip_local_rank_argv'); print('options_module', inspect.getfile(o)); print('local_rank_fix_ok')"
+
       python scripts/download_swinir_release.py --only 004_grayDN
       python -m torch.distributed.run --use-env \
         --nproc_per_node="${TRAIN_NPROC_PER_NODE}" \
