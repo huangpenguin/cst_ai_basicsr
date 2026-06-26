@@ -9,7 +9,7 @@ dependencies = [
     "future",
     "lmdb",
     "numpy>=1.17",
-    "opencv-python",
+    "opencv-python-headless",
     "Pillow",
     "pyyaml",
     "requests",
