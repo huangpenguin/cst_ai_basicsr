@@ -31,7 +31,7 @@ variables:
   TRAIN_MASTER_PORT: "4331"
   TRAIN_CYLINDERBLOCK_COMMAND: >-
     python scripts/download_swinir_release.py --only 004_grayDN &&
-    python -m torch.distributed.launch
+    python -m torch.distributed.run
     --nproc_per_node=${TRAIN_NPROC_PER_NODE}
     --master_port=${TRAIN_MASTER_PORT}
     basicsr/train.py
@@ -251,7 +251,7 @@ train_cylinderblock_swinir_graydn:
       python -c "import inspect; from basicsr.utils import options as o; assert hasattr(o, '_strip_local_rank_argv'); print('options_module', inspect.getfile(o)); print('local_rank_fix_ok')"
 
       python scripts/download_swinir_release.py --only 004_grayDN
-      python -m torch.distributed.run --use-env \
+      python -m torch.distributed.run \
         --nproc_per_node="${TRAIN_NPROC_PER_NODE}" \
         --master_port="${TRAIN_MASTER_PORT}" \
         basicsr/train.py \
