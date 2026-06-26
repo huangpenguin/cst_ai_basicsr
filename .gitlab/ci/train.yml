@@ -127,6 +127,9 @@ variables:
   after_script:
     - |
       set -euo pipefail
+      if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
+        TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
+      fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
         mkdir -p "${CI_PROJECT_DIR}/results"
         rm -rf "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn"
@@ -173,6 +176,32 @@ train_cylinderblock_swinir_graydn:
   script:
     - |
       set -euo pipefail
+
+      resolve_storage_root() {
+        local candidate
+        for candidate in \
+          "/home/${GITLAB_USER_LOGIN}/cst_ai" \
+          "/cache/${GITLAB_USER_LOGIN}/cst_ai" \
+          "${CI_PROJECT_DIR}/.ci_storage/${GITLAB_USER_LOGIN}/cst_ai"; do
+          if mkdir -p "${candidate}/datasets" "${candidate}/ci_outputs" 2>/dev/null && [[ -w "${candidate}" ]]; then
+            echo "${candidate}"
+            return 0
+          fi
+        done
+        echo "ERROR: no writable storage root for datasets/experiments." >&2
+        echo "NFS /home often blocks container root (root_squash). On the GPU host, run:" >&2
+        echo "  mkdir -p /mnt/home/${GITLAB_USER_LOGIN}/cst_ai/datasets" >&2
+        echo "  chmod -R u+rwX /mnt/home/${GITLAB_USER_LOGIN}/cst_ai" >&2
+        echo "Or ensure the runner mounts a writable /cache volume." >&2
+        return 1
+      }
+
+      storage_root="$(resolve_storage_root)"
+      export TRAIN_DATASET_DIR="${storage_root}/datasets/swinir_cylinderblock_paired"
+      export TRAIN_EXPERIMENTS_ROOT="${storage_root}/ci_outputs/${CI_PIPELINE_ID}/experiments"
+      echo "${TRAIN_EXPERIMENTS_ROOT}" > "${CI_PROJECT_DIR}/.ci_experiments_root"
+
+      echo "storage_root=${storage_root}"
       echo "TRAIN_DATASET_DIR=${TRAIN_DATASET_DIR}"
       echo "TRAIN_RAW_DATA_ROOT=${TRAIN_RAW_DATA_ROOT}"
       echo "TRAIN_EXPERIMENTS_ROOT=${TRAIN_EXPERIMENTS_ROOT}"
@@ -216,4 +245,20 @@ train_cylinderblock_swinir_graydn:
       done
 
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
-      bash -lc "${TRAIN_CYLINDERBLOCK_COMMAND}"
+
+      python scripts/download_swinir_release.py --only 004_grayDN
+      python -m torch.distributed.launch \
+        --nproc_per_node="${TRAIN_NPROC_PER_NODE}" \
+        --master_port="${TRAIN_MASTER_PORT}" \
+        basicsr/train.py \
+        -opt options/train/SwinIR/train_SwinIR_grayDN_cylinderblock.yml \
+        --launcher pytorch \
+        --auto_resume \
+        --force_yml \
+        "datasets:train:dataroot_lq=${TRAIN_DATASET_DIR}/train/LQ" \
+        "datasets:train:dataroot_gt=${TRAIN_DATASET_DIR}/train/GT" \
+        "datasets:train:normalization=${TRAIN_DATASET_DIR}/normalization.json" \
+        "datasets:val:dataroot_lq=${TRAIN_DATASET_DIR}/val/LQ" \
+        "datasets:val:dataroot_gt=${TRAIN_DATASET_DIR}/val/GT" \
+        "datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json" \
+        "path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}"
