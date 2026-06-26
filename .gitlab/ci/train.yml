@@ -52,7 +52,6 @@ variables:
   tags:
     - linux
     - docker
-    - main-gpu
   resource_group: gpu-training
   needs: []
   cache:
