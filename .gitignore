@@ -3,15 +3,14 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-.python-version
 
 # Virtual environments
 .venv/
 venv/
 env/
 
-# uv
-uv.lock
+# uv (lockfile is committed for reproducible sync)
+# uv.lock
 
 # Tool caches
 .ruff_cache/
@@ -20,7 +19,6 @@ uv.lock
 .pyright/
 .coverage
 htmlcov/
-.cache/
 
 # Build artifacts
 build/
@@ -38,9 +36,6 @@ dist/
 .vscode/
 .devcontainer/devcontainer.local.json
 
-# Cursor local state (keep .cursorrules if you want shared agent rules)
-.cursor/
-
 # Notebooks
 .ipynb_checkpoints/
 
@@ -53,22 +48,15 @@ lightning_logs/
 tensorboard/
 *.log
 
-# Data and model artifacts (download locally or in CI)
-data/
-datasets/
+# Data and model artifacts (repo-root only; do not match basicsr/data/)
+/data/
+/datasets/
 outputs/
 artifacts/
 checkpoints/
 models/
-results/
-experiments/pretrained_models/**
-!experiments/pretrained_models/README.md
 *.ckpt
 *.pt
 *.pth
 *.safetensors
 *.onnx
-
-# Local planning / presentation drafts
-plan.md
-ppt/

@@ -1,103 +1,121 @@
-# Docker executor GPU jobs — inference smoke / full inference (no training yet).
+# =============================================================================
+# train.yml — Docker executor GPU 训练调度
+# =============================================================================
 #
-# Runner config.toml (once per GPU server — no per-user paths):
-#   volumes = [
-#     "/cache",
-#     "/mnt/data:/data:ro",
-#     "/mnt/home:/home:rw",
-#   ]
+# 【跑在哪】GPU 服务器上自建的 self-hosted Docker executor Runner。
+# GitLab Runner 直接拉起下面 image 指定的 GPU job 容器，job 脚本在容器内执行。
 #
-# Data layout:
-#   /data/<PROJECT_NAME>/...           raw team datasets (read-only)
-#   /home/<user>/<PROJECT_NAME>/...    personal outputs / derived data (read-write)
+# 【Runner 必须配置 GPU Docker executor】
+# - runner executor: docker
+# - runner tags: linux, docker, gpu
+# - /etc/gitlab-runner/config.toml: [runners.docker] gpus = "all"
+# - 数据盘建议由 runner volumes 挂载，例如 /mnt/data:/data:ro
 #
-# Per-repo overrides in GitLab CI/CD Variables or variables below:
-#   DATASET_DIR, OUTPUT_DIR
+# 本模板不在 CI 脚本里执行 docker build / docker run；项目依赖由 job 内 uv 同步，
+# 或者后续改用已经构建好并推送到 registry 的项目镜像。
+# =============================================================================
 
 variables:
   MLOPS_GPU_IMAGE: "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
   UV_LINK_MODE: copy
-  DATASET_DIR: "/data/cst_ai/data_0607/260520_1-battery_data/260520_battery image tiff data"
-  OUTPUT_DIR: "/home/${GITLAB_USER_LOGIN}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/swinir_gray_dn_battery_smoke"
-  SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
-  INFERENCE_COMMAND: >-
-    python scripts/download_swinir_release.py --only 004_grayDN &&
-    python scripts/smoke_test_swinir_gray_dn_battery.py --devices 0,1,2,3
+  DATA_DIR: "/data"
+  SMOKE_COMMAND: "python train.py"
+  TRAIN_COMMAND: "python train.py"
 
 .gpu_docker_base:
   stage: deploy
   image: "$MLOPS_GPU_IMAGE"
-  tags: [linux, docker, gpu]
+  tags:
+    - linux
+    - docker
+    - gpu
   resource_group: gpu-training
   needs: []
   cache:
     key:
-      files: [requirements.txt, pyproject.toml]
-    paths: [.venv/, .cache/uv/, experiments/pretrained_models/SwinIR/]
+      files:
+        - pyproject.toml
+        - uv.lock
+        - requirements.txt
+    paths:
+      - .venv/
+      - .cache/uv/
     policy: pull-push
   before_script:
     - |
       set -euo pipefail
+
+      echo "Runner: ${CI_RUNNER_DESCRIPTION:-unknown}"
+      echo "Runner tags: ${CI_RUNNER_TAGS:-unknown}"
+      echo "GPU image: ${MLOPS_GPU_IMAGE}"
+      echo "DATA_DIR: ${DATA_DIR}"
+
+      if ! command -v nvidia-smi >/dev/null 2>&1; then
+        echo "ERROR: nvidia-smi not found inside the job container." >&2
+        echo "Check GitLab Runner docker executor config: [runners.docker] gpus = \"all\"." >&2
+        exit 1
+      fi
       nvidia-smi
-      apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git
+
       if ! command -v uv >/dev/null 2>&1; then
+        if ! command -v curl >/dev/null 2>&1; then
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl
+          rm -rf /var/lib/apt/lists/*
+        fi
         curl -LsSf https://astral.sh/uv/install.sh | sh
         export PATH="${HOME}/.local/bin:${PATH}"
       fi
-      uv venv
-      if [[ -f requirements.txt ]]; then
-        uv pip install -r requirements.txt
-      fi
-      uv pip install -e .
-      export PATH="${CI_PROJECT_DIR}/.venv/bin:${PATH}"
-      python -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())"
-      echo "DATA_MOUNT_SOURCE=${DATA_MOUNT_SOURCE} HOME_MOUNT_SOURCE=${HOME_MOUNT_SOURCE}"
-      echo "DATA_DIR=${DATA_DIR} PROJECT_NAME=${PROJECT_NAME} WORK_DIR=${WORK_DIR}"
-      echo "DATASET_DIR=${DATASET_DIR} OUTPUT_DIR=${OUTPUT_DIR}"
 
-.gpu_artifacts:
-  after_script:
-    - |
-      set -euo pipefail
-      if [[ -n "${OUTPUT_DIR:-}" && -d "${OUTPUT_DIR}" ]]; then
-        mkdir -p "${CI_PROJECT_DIR}/results"
-        rm -rf "${CI_PROJECT_DIR}/results/swinir_gray_dn_battery_smoke"
-        cp -a "${OUTPUT_DIR}/." "${CI_PROJECT_DIR}/results/swinir_gray_dn_battery_smoke/"
-        echo "Staged artifacts from ${OUTPUT_DIR}"
+      uv --version
+
+      if [[ ! -f scripts/uv-bootstrap.sh ]]; then
+        echo "ERROR: scripts/uv-bootstrap.sh not found. Re-run init-ai add mlops-gpu --update --apply." >&2
+        exit 1
       fi
-  artifacts:
-    when: always
-    expire_in: 14 days
-    paths:
-      - results/swinir_gray_dn_battery_smoke/
+
+      bash scripts/uv-bootstrap.sh
+
+      if [[ -d .venv ]]; then
+        export VIRTUAL_ENV="${CI_PROJECT_DIR}/.venv"
+        export PATH="${VIRTUAL_ENV}/bin:${PATH}"
+      fi
+
+      if ! command -v python >/dev/null 2>&1; then
+        echo "ERROR: python not found after uv-bootstrap." >&2
+        exit 1
+      fi
+
+      python - <<'PY'
+      import torch
+
+      print("torch:", torch.__version__)
+      print("cuda build:", torch.version.cuda)
+      print("cuda available:", torch.cuda.is_available())
+      print("device count:", torch.cuda.device_count())
+      if not torch.cuda.is_available():
+          raise SystemExit("CUDA is not available inside the GitLab Docker executor job container")
+      PY
 
 gpu_smoke:
-  extends:
-    - .gpu_docker_base
-    - .gpu_artifacts
-  timeout: 45m
+  extends: .gpu_docker_base
+  timeout: 30m
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: manual
-      allow_failure: true
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true
   script:
     - bash -lc "${SMOKE_COMMAND}"
 
-run_inference:
-  extends:
-    - .gpu_docker_base
-    - .gpu_artifacts
-  timeout: 2h
+run_training:
+  extends: .gpu_docker_base
+  timeout: 12h
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: manual
-      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_MESSAGE =~ /\[run train\]/'
+      when: on_success
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true
   script:
-    - bash -lc "${INFERENCE_COMMAND}"
+    - bash -lc "${TRAIN_COMMAND}"

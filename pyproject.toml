@@ -1,9 +1,26 @@
 [project]
 name = "basicsr"
 version = "0.1.0"
-description = "Add your description here"
+description = "Open Source Image and Video Super-Resolution Toolbox"
+readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "addict",
+    "future",
+    "lmdb",
+    "numpy>=1.17",
+    "opencv-python",
+    "Pillow",
+    "pyyaml",
+    "requests",
+    "scikit-image",
+    "scipy",
+    "tb-nightly",
+    "torch>=2.6.0,<2.7.0",
+    "torchvision>=0.21.0,<0.22.0",
+    "tqdm",
+    "yapf",
+]
 
 [dependency-groups]
 dev = [
@@ -11,3 +28,15 @@ dev = [
     "pyright>=1.1.410",
     "ruff>=0.15.18",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }
+torchvision = { index = "pytorch-cu124" }
+
+[tool.uv]
+package = false

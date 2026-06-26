@@ -47,14 +47,14 @@
 quality:ruff-check:
   extends: .quality_base
   script:
-    - uv run ruff check
+    - uv run ruff check .
 
 quality:ruff-format:
   extends: .quality_base
   script:
-    - uv run ruff format --check
+    - uv run ruff format --check .
 
 quality:pyright:
   extends: .quality_base
   script:
-    - uv run pyright -p pyrightconfig.pre-push.json
+    - uv run pyright

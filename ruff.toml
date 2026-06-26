@@ -1,15 +1,17 @@
 line-length = 120
 target-version = "py310"
 
-# Only lint/format MLOps GPU inference paths; upstream BasicSR scripts are out of scope.
+# Only lint/format MLOps GPU paths; upstream BasicSR modules are out of scope.
 include = [
   "scripts/battery_tiff_io.py",
   "scripts/ci_gpu_smoke.py",
   "scripts/data_paths.py",
   "scripts/download_swinir_release.py",
+  "scripts/preprocess_cylinderblock_swinir.py",
   "scripts/smoke_test_swinir_gray_dn.py",
   "scripts/smoke_test_swinir_gray_dn_battery.py",
   "scripts/swinir_gray_dn_infer.py",
+  "basicsr/data/paired_tiff_image_dataset.py",
   "train.py",
   "main.py",
 ]

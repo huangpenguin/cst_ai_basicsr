@@ -8,10 +8,9 @@
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
   "updateRemoteUserUID": true,
-  "initializeCommand": "ls /mnt/data >/dev/null && ls /mnt/home >/dev/null && test -d /mnt/data && test -d /mnt/home || (echo 'ERROR: /mnt/data and /mnt/home must exist on the Docker host (autofs).' >&2 && exit 1)",
+  "initializeCommand": "test -n \"${localEnv:DATA_MOUNT_SOURCE}\" && ls \"${localEnv:DATA_MOUNT_SOURCE}\" >/dev/null && test -d \"${localEnv:DATA_MOUNT_SOURCE}\" || (echo 'ERROR: export DATA_MOUNT_SOURCE before Rebuild.' >&2 && echo 'Example: export DATA_MOUNT_SOURCE=/path/to/your/input' >&2 && exit 1)",
   "mounts": [
-    "source=/mnt/data,target=/data,type=bind",
-    "source=/mnt/home,target=/home,type=bind"
+    "source=${localEnv:DATA_MOUNT_SOURCE},target=/data,type=bind"
   ],
   "runArgs": [
     "--gpus",
@@ -22,13 +21,9 @@
   "containerEnv": {
     "PYTHONUNBUFFERED": "1",
     "UV_LINK_MODE": "copy",
-    "DATA_MOUNT_SOURCE": "/mnt/data",
-    "HOME_MOUNT_SOURCE": "/mnt/home",
-    "DATA_DIR": "/data",
-    "PROJECT_NAME": "cst_ai",
-    "WORK_DIR": "/home/huang"
+    "DATA_DIR": "/data"
   },
-  "postCreateCommand": "if [ -f pyproject.toml ]; then uv sync --dev; fi",
+  "postCreateCommand": "bash scripts/uv-bootstrap.sh",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -37,7 +32,7 @@
         "charliermarsh.ruff"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/opt/conda/bin/python",
+        "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
         "python.terminal.activateEnvironment": false
       }
     }

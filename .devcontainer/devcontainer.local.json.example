@@ -26,18 +26,12 @@
   //   "source=/path/on/docker-host,target=/data,type=bind"
   // ]
 
-  // Option C: autofs NFS on main_gpu (team + personal homes).
+  // Option C: autofs NFS on main_gpu (host path /mnt/data).
   //
-  // "initializeCommand": "ls /mnt/data >/dev/null && ls /mnt/home >/dev/null",
+  // "initializeCommand": "ls /mnt/data >/dev/null",
   // "mounts": [
-  //   "source=/mnt/data,target=/data,type=bind",
-  //   "source=/mnt/home,target=/home,type=bind"
-  // ],
-  // "containerEnv": {
-  //   "DATA_DIR": "/data",
-  //   "PROJECT_NAME": "cst_ai",
-  //   "WORK_DIR": "/home/huang"
-  // }
+  //   "source=/mnt/data,target=/data,type=bind"
+  // ]
 
   // Option D: local empty fallback for GPU smoke only (no real datasets).
   //
