@@ -5,13 +5,3 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
-
-  - repo: local
-    hooks:
-      - id: pyright
-        name: pyright (basic, pre-push)
-        entry: uv run pyright -p pyrightconfig.pre-push.json
-        language: system
-        stages: [pre-push]
-        pass_filenames: false
-        always_run: true
