@@ -138,9 +138,48 @@ defaults to `/home/${GITLAB_USER_LOGIN}/cst_ai/datasets/swinir_cylinderblock_pai
 
 For debugging CUDA / shape issues without a long DDP run, use the manual CI job
 `train_cylinderblock_swinir_debug` (see `scripts/ci_swinir_cylinderblock_debug.py`).
-It preprocesses only a few slices, runs single-GPU training for ~30 iterations
-with `CUDA_LAUNCH_BLOCKING=1`, and uploads logs under
-`results/cylinderblock_swinir_debug/`.
+It preprocesses only a few slices, runs single-GPU training for ~30 iterations,
+and uploads logs under `results/cylinderblock_swinir_debug/`.
+
+## Monitoring (logs and TensorBoard)
+
+CI long training writes **persistent** outputs under the runner bind mount
+(`/cache` or `/home` on the GPU host — same path inside the job container):
+
+```text
+{storage_root}/ci_outputs/{PipelineID}/
+  experiments/<exp_name>/train_*.log    # text logs, checkpoints
+  tb_logger/<exp_name>/                 # TensorBoard events
+```
+
+`storage_root` is usually `/cache/${GITLAB_USER_LOGIN}/cst_ai` or
+`/home/${GITLAB_USER_LOGIN}/cst_ai`. On the GPU server host, list:
+
+```bash
+ls /cache/huang.pengbin/cst_ai/ci_outputs/
+# or
+ls /mnt/home/huang.pengbin/cst_ai/ci_outputs/
+```
+
+**Text log while training** (SSH to GPU host):
+
+```bash
+tail -f /cache/*/cst_ai/ci_outputs/*/experiments/*/train_*.log
+```
+
+**TensorBoard** (on GPU host, no uv needed):
+
+```bash
+bash scripts/serve_tensorboard.sh /cache/huang.pengbin/cst_ai/ci_outputs
+ssh -L 6006:localhost:6006 user@gpu-host   # from laptop
+# http://localhost:6006
+```
+
+Curves: `losses/l_pix`, `metrics/CylinderblockPairedVal/psnr`, `metrics/.../ssim`.
+Debug jobs (`--debug`) skip TensorBoard; use job log or artifacts.
+
+**Note:** GitLab `cache:` in CI caches `.venv/` between jobs — that is separate
+from the `/cache` volume and only speeds up dependency install.
 
 ## Implementation Notes
 

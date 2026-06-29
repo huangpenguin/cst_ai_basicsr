@@ -3,17 +3,19 @@
 # =============================================================================
 #
 # 【跑在哪】GPU 服务器上自建的 self-hosted Docker executor Runner。
-# GitLab Runner 直接拉起下面 image 指定的 GPU job 容器，job 脚本在容器内执行。
 #
-# 【Runner 必须配置 GPU Docker executor】
-# - runner executor: docker
-# - runner tags: linux, docker, gpu
-# - /etc/gitlab-runner/config.toml: [runners.docker] gpus = "all"
-# - volumes 建议:
-#     ["/cache", "/mnt/data:/data:ro", "/mnt/home:/home:rw"]
+# 【Runner volumes — 持久数据，job 结束后仍在宿主机】
+#   /cache              <->  host /cache
+#   /mnt/home:/home:rw  <->  host /mnt/home
+#   /mnt/data:/data:ro  <->  host /mnt/data（原始 TIFF，只读）
 #
-# 本模板不在 CI 脚本里执行 docker build / docker run；项目依赖由 job 内 uv 同步，
-# 或者后续改用已经构建好并推送到 registry 的项目镜像。
+# 训练输出（log、checkpoint、TensorBoard）写在 storage_root/ci_outputs/{PipelineID}/：
+#   experiments/   — train_*.log、models/、training_states/
+#   tb_logger/     — TensorBoard 事件（经 BASICSR_TB_LOGGER_ROOT）
+#
+# 【GitLab cache:（.gitlab-ci.yml 里 cache: 段）— 与 /cache 卷无关】
+#   缓存 .venv/、.cache/uv/、预训练权重，加速同一 runner 上下次 job 装依赖；
+#   日志里 "stored only locally" 表示未配 S3，但仍可在本机 runner 上复用。
 # =============================================================================
 
 variables:
@@ -136,11 +138,24 @@ variables:
       if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
         TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
       fi
+      if [[ -f "${CI_PROJECT_DIR}/.ci_tb_logger_root" ]]; then
+        BASICSR_TB_LOGGER_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_tb_logger_root")"
+      fi
+      if [[ -f "${CI_PROJECT_DIR}/.ci_run_root" ]]; then
+        CI_RUN_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_run_root")"
+        echo "Persistent CI_RUN_ROOT=${CI_RUN_ROOT}"
+        echo "  Host path (if /cache bind-mounted): ${CI_RUN_ROOT}"
+      fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
-        mkdir -p "${CI_PROJECT_DIR}/results"
-        rm -rf "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn"
+        mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn"
         cp -a "${TRAIN_EXPERIMENTS_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn/" || true
-        echo "Staged training artifacts from ${TRAIN_EXPERIMENTS_ROOT}"
+        echo "Staged experiments from ${TRAIN_EXPERIMENTS_ROOT}"
+      fi
+      if [[ -n "${BASICSR_TB_LOGGER_ROOT:-}" && -d "${BASICSR_TB_LOGGER_ROOT}" ]]; then
+        mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn/tb_logger"
+        cp -a "${BASICSR_TB_LOGGER_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn/tb_logger/" || true
+        echo "Staged tensorboard from ${BASICSR_TB_LOGGER_ROOT}"
+        echo "On GPU host: bash scripts/serve_tensorboard.sh $(dirname "${BASICSR_TB_LOGGER_ROOT}")"
       fi
   artifacts:
     when: always
@@ -154,6 +169,9 @@ variables:
       set -euo pipefail
       if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
         TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
+      fi
+      if [[ -f "${CI_PROJECT_DIR}/.ci_run_root" ]]; then
+        echo "Persistent CI_RUN_ROOT=$(cat "${CI_PROJECT_DIR}/.ci_run_root")"
       fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
         mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_debug"
@@ -220,34 +238,8 @@ train_cylinderblock_swinir_graydn:
     - |
       set -euo pipefail
 
-      resolve_storage_root() {
-        local candidate
-        for candidate in \
-          "/home/${GITLAB_USER_LOGIN}/cst_ai" \
-          "/cache/${GITLAB_USER_LOGIN}/cst_ai" \
-          "${CI_PROJECT_DIR}/.ci_storage/${GITLAB_USER_LOGIN}/cst_ai"; do
-          if mkdir -p "${candidate}/datasets" "${candidate}/ci_outputs" 2>/dev/null && [[ -w "${candidate}" ]]; then
-            echo "${candidate}"
-            return 0
-          fi
-        done
-        echo "ERROR: no writable storage root for datasets/experiments." >&2
-        echo "NFS /home often blocks container root (root_squash). On the GPU host, run:" >&2
-        echo "  mkdir -p /mnt/home/${GITLAB_USER_LOGIN}/cst_ai/datasets" >&2
-        echo "  chmod -R u+rwX /mnt/home/${GITLAB_USER_LOGIN}/cst_ai" >&2
-        echo "Or ensure the runner mounts a writable /cache volume." >&2
-        return 1
-      }
-
-      storage_root="$(resolve_storage_root)"
-      export TRAIN_DATASET_DIR="${storage_root}/datasets/swinir_cylinderblock_paired"
-      export TRAIN_EXPERIMENTS_ROOT="${storage_root}/ci_outputs/${CI_PIPELINE_ID}/experiments"
-      echo "${TRAIN_EXPERIMENTS_ROOT}" > "${CI_PROJECT_DIR}/.ci_experiments_root"
-
-      echo "storage_root=${storage_root}"
-      echo "TRAIN_DATASET_DIR=${TRAIN_DATASET_DIR}"
+      eval "$(python scripts/ci_storage.py prepare --write-markers --emit-shell)"
       echo "TRAIN_RAW_DATA_ROOT=${TRAIN_RAW_DATA_ROOT}"
-      echo "TRAIN_EXPERIMENTS_ROOT=${TRAIN_EXPERIMENTS_ROOT}"
       echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
 
       required_paths=(

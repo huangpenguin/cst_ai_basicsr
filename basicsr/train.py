@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import math
+import os
 import time
 from os import path as osp
 
@@ -49,6 +50,14 @@ def _agent_debug_log(*, hypothesis_id: str, location: str, message: str, data: d
 # #endregion
 
 
+def _tb_logger_dir(root_path: str, exp_name: str) -> str:
+    """TensorBoard event dir; override with env BASICSR_TB_LOGGER_ROOT for CI persistence."""
+    tb_root = os.environ.get("BASICSR_TB_LOGGER_ROOT")
+    if tb_root:
+        return osp.join(tb_root, exp_name)
+    return osp.join(root_path, "tb_logger", exp_name)
+
+
 def init_tb_loggers(opt):
     # initialize wandb logger before tensorboard logger to allow proper sync
     if (
@@ -60,7 +69,7 @@ def init_tb_loggers(opt):
         init_wandb_logger(opt)
     tb_logger = None
     if opt["logger"].get("use_tb_logger") and "debug" not in opt["name"]:
-        tb_logger = init_tb_logger(log_dir=osp.join(opt["root_path"], "tb_logger", opt["name"]))
+        tb_logger = init_tb_logger(log_dir=_tb_logger_dir(opt["root_path"], opt["name"]))
     return tb_logger
 
 
@@ -145,7 +154,7 @@ def train_pipeline(root_path):
     if resume_state is None:
         make_exp_dirs(opt)
         if opt["logger"].get("use_tb_logger") and "debug" not in opt["name"] and opt["rank"] == 0:
-            mkdir_and_rename(osp.join(opt["root_path"], "tb_logger", opt["name"]))
+            mkdir_and_rename(_tb_logger_dir(opt["root_path"], opt["name"]))
 
     # copy the yml file to the experiment root
     copy_opt_file(args.opt, opt["path"]["experiments_root"])

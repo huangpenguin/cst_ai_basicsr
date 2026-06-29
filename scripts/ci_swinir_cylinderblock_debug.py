@@ -20,6 +20,12 @@ from pathlib import Path
 from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import ci_storage  # noqa: E402
+
 PREPROCESS_SCRIPT = REPO_ROOT / "scripts" / "preprocess_cylinderblock_swinir.py"
 TRAIN_SCRIPT = REPO_ROOT / "basicsr" / "train.py"
 TRAIN_OPT = REPO_ROOT / "options" / "train" / "SwinIR" / "train_SwinIR_grayDN_cylinderblock.yml"
@@ -35,29 +41,16 @@ def _env_int(name: str, default: int) -> int:
 
 
 def resolve_storage_root() -> Path:
-    login = os.environ.get("GITLAB_USER_LOGIN", os.environ.get("USER", "ci"))
-    candidates = [
-        Path(f"/home/{login}/cst_ai"),
-        Path(f"/cache/{login}/cst_ai"),
-        REPO_ROOT / ".ci_storage" / login / "cst_ai",
-    ]
-    for candidate in candidates:
-        try:
-            (candidate / "datasets").mkdir(parents=True, exist_ok=True)
-            (candidate / "ci_outputs").mkdir(parents=True, exist_ok=True)
-            if os.access(candidate, os.W_OK):
-                return candidate
-        except OSError:
-            continue
-    raise SystemExit(
-        f"ERROR: no writable storage root for datasets/experiments.\nTried: {', '.join(str(p) for p in candidates)}"
-    )
+    return ci_storage.resolve_storage_root(project_dir=REPO_ROOT)
 
 
 def run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
     printable = " ".join(cmd)
     print(f"\n>>> {printable}", flush=True)
-    subprocess.check_call(cmd, cwd=REPO_ROOT, env=env)
+    merged = os.environ.copy()
+    if env:
+        merged.update(env)
+    subprocess.check_call(cmd, cwd=REPO_ROOT, env=merged)
 
 
 def ensure_debug_dataset(
@@ -236,9 +229,12 @@ def main(argv: Iterable[str] | None = None) -> None:
     raw_data_root = Path(os.environ.get("TRAIN_RAW_DATA_ROOT", f"/data/{project_name}/data_0607"))
 
     storage_root = resolve_storage_root()
-    pipeline_id = os.environ.get("CI_PIPELINE_ID", "local")
-    experiments_root = storage_root / "ci_outputs" / f"{pipeline_id}_debug" / "experiments"
-    experiments_root.mkdir(parents=True, exist_ok=True)
+    paths = ci_storage.prepare_run_outputs(storage_root, debug=True, dataset_subdir="swinir_cylinderblock_debug")
+    ci_storage.apply_tb_logger_env(paths)
+    ci_storage.write_markers(REPO_ROOT, paths)
+    ci_storage.print_paths(paths)
+
+    experiments_root = paths.experiments_root
     ARTIFACT_MARKER.write_text(str(experiments_root), encoding="utf-8")
 
     dataset_dir = ensure_debug_dataset(

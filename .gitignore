@@ -65,3 +65,5 @@ experiments/
 ppt/
 .ci_storage/
 .ci_experiments_root
+.ci_run_root
+.ci_tb_logger_root
