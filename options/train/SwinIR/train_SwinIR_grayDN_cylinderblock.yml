@@ -113,3 +113,5 @@ logger:
 dist_params:
   backend: nccl
   port: 29500
+  # NCCL collective timeout (minutes). Default PyTorch is 10m; full-res val on rank 0 can exceed that.
+  timeout_min: 120

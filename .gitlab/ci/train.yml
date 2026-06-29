@@ -31,6 +31,8 @@ variables:
   TRAIN_EXPERIMENTS_ROOT: "/home/${GITLAB_USER_LOGIN}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/experiments"
   TRAIN_NPROC_PER_NODE: "4"
   TRAIN_MASTER_PORT: "4331"
+  # PyTorch distributed / NCCL collective timeout (minutes). Override via job variables if needed.
+  TRAIN_DIST_TIMEOUT_MIN: "120"
   TRAIN_CYLINDERBLOCK_COMMAND: >-
     python scripts/download_swinir_release.py --only 004_grayDN &&
     python -m torch.distributed.run
@@ -241,6 +243,8 @@ train_cylinderblock_swinir_graydn:
       eval "$(python scripts/ci_storage.py prepare --write-markers --emit-shell)"
       echo "TRAIN_RAW_DATA_ROOT=${TRAIN_RAW_DATA_ROOT}"
       echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
+      echo "TRAIN_DIST_TIMEOUT_MIN=${TRAIN_DIST_TIMEOUT_MIN}"
+      export TRAIN_DIST_TIMEOUT_MIN
 
       required_paths=(
         "${TRAIN_DATASET_DIR}/train/LQ"
@@ -288,7 +292,17 @@ train_cylinderblock_swinir_graydn:
         exit 1
       fi
       uv pip install -e . --no-deps
-      python -c "import inspect; from basicsr.utils import options as o; assert hasattr(o, '_strip_local_rank_argv'); print('options_module', inspect.getfile(o)); print('local_rank_fix_ok')"
+      python -c "
+      import inspect
+      from datetime import timedelta
+      from basicsr.utils import options as o
+      from basicsr.utils.dist_util import _prepare_dist_init_kwargs
+      assert hasattr(o, '_strip_local_rank_argv')
+      assert _prepare_dist_init_kwargs({'timeout_min': 120})['timeout'] == timedelta(minutes=120)
+      print('options_module', inspect.getfile(o))
+      print('local_rank_fix_ok')
+      print('dist_timeout_fix_ok')
+      "
 
       python scripts/download_swinir_release.py --only 004_grayDN
       python -m torch.distributed.run \
@@ -305,4 +319,5 @@ train_cylinderblock_swinir_graydn:
         "datasets:val:dataroot_lq=${TRAIN_DATASET_DIR}/val/LQ" \
         "datasets:val:dataroot_gt=${TRAIN_DATASET_DIR}/val/GT" \
         "datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json" \
-        "path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}"
+        "path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}" \
+        "val=~"

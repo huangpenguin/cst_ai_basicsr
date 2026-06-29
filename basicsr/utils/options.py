@@ -184,26 +184,13 @@ def parse_options(root_path, is_train=True):
     # parse yml to dict
     opt = yaml_load(args.opt)
 
-    # distributed settings
     if args.launcher == "none":
         opt["dist"] = False
         print("Disable distributed.", flush=True)
     else:
         opt["dist"] = True
-        if args.launcher == "slurm" and "dist_params" in opt:
-            init_dist(args.launcher, **opt["dist_params"])
-        else:
-            init_dist(args.launcher)
-    opt["rank"], opt["world_size"] = get_dist_info()
 
-    # random seed
-    seed = opt.get("manual_seed")
-    if seed is None:
-        seed = random.randint(1, 10000)
-        opt["manual_seed"] = seed
-    set_random_seed(seed + opt["rank"])
-
-    # force to update yml options
+    # force to update yml options (before dist init)
     if args.force_yml is not None:
         for entry in args.force_yml:
             # now do not support creating new keys
@@ -283,6 +270,18 @@ def parse_options(root_path, is_train=True):
                 eval_str += f'["{key}"]'
             eval_str += "=value"
             exec(eval_str)
+
+    if opt["dist"]:
+        dist_params = opt.get("dist_params") or {}
+        init_dist(args.launcher, **dist_params)
+
+    opt["rank"], opt["world_size"] = get_dist_info()
+
+    seed = opt.get("manual_seed")
+    if seed is None:
+        seed = random.randint(1, 10000)
+        opt["manual_seed"] = seed
+    set_random_seed(seed + opt["rank"])
 
     return opt, args
 
