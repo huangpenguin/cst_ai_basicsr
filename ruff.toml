@@ -5,6 +5,7 @@ target-version = "py310"
 include = [
   "scripts/battery_tiff_io.py",
   "scripts/ci_gpu_smoke.py",
+  "scripts/ci_swinir_cylinderblock_debug.py",
   "scripts/data_paths.py",
   "scripts/download_swinir_release.py",
   "scripts/preprocess_cylinderblock_swinir.py",

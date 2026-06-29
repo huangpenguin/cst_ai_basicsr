@@ -46,6 +46,12 @@ variables:
     datasets:val:dataroot_gt=${TRAIN_DATASET_DIR}/val/GT
     datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json
     path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}
+  # Short SwinIR train repro job (see scripts/ci_swinir_cylinderblock_debug.py)
+  CI_DEBUG_COMMAND: "python scripts/ci_swinir_cylinderblock_debug.py"
+  CI_DEBUG_MAX_SLICES: "5"
+  CI_DEBUG_TOTAL_ITER: "30"
+  CI_DEBUG_NPROC: "1"
+  CI_DEBUG_BATCH_SIZE: "1"
 
 .gpu_docker_base:
   stage: deploy
@@ -142,6 +148,24 @@ variables:
     paths:
       - results/cylinderblock_swinir_graydn/
 
+.gpu_debug_artifacts:
+  after_script:
+    - |
+      set -euo pipefail
+      if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
+        TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
+      fi
+      if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
+        mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_debug"
+        cp -a "${TRAIN_EXPERIMENTS_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_debug/" || true
+        echo "Staged debug artifacts from ${TRAIN_EXPERIMENTS_ROOT}"
+      fi
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - results/cylinderblock_swinir_debug/
+
 gpu_smoke:
   extends: .gpu_docker_base
   timeout: 30m
@@ -151,6 +175,25 @@ gpu_smoke:
       allow_failure: true
   script:
     - bash -lc "${SMOKE_COMMAND}"
+
+# Short SwinIR train repro: tiny dataset, 1 GPU, CUDA_LAUNCH_BLOCKING=1, ~minutes.
+# Play manually before train_cylinderblock_swinir_graydn when debugging CUDA/shape issues.
+train_cylinderblock_swinir_debug:
+  extends:
+    - .gpu_docker_base
+    - .gpu_debug_artifacts
+  timeout: 1h
+  variables:
+    CUDA_LAUNCH_BLOCKING: "1"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      set -euo pipefail
+      python -c "import inspect; from basicsr.utils import options as o; assert hasattr(o, '_strip_local_rank_argv'); print('options_module', inspect.getfile(o)); print('local_rank_fix_ok')"
+      bash -lc "${CI_DEBUG_COMMAND}"
 
 run_training:
   extends: .gpu_docker_base

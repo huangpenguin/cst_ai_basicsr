@@ -136,6 +136,12 @@ uv run python -m torch.distributed.launch \
 The GitLab manual job `train_cylinderblock_swinir_graydn` uses the same yml and
 defaults to `/home/${GITLAB_USER_LOGIN}/cst_ai/datasets/swinir_cylinderblock_paired`.
 
+For debugging CUDA / shape issues without a long DDP run, use the manual CI job
+`train_cylinderblock_swinir_debug` (see `scripts/ci_swinir_cylinderblock_debug.py`).
+It preprocesses only a few slices, runs single-GPU training for ~30 iterations
+with `CUDA_LAUNCH_BLOCKING=1`, and uploads logs under
+`results/cylinderblock_swinir_debug/`.
+
 ## Implementation Notes
 
 Use `PairedTiffImageDataset` for this dataset. The standard `PairedImageDataset`
