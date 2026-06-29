@@ -300,9 +300,29 @@ def train_pipeline(root_path):
     logger.info(f"End of training. Time consumed: {consumed_time}")
     logger.info("Save the latest model.")
     model.save(epoch=-1, current_iter=-1)  # -1 stands for the latest
-    if opt.get("val") is not None:
+    val_cfg = opt.get("val")
+    run_final_val = val_cfg is not None and (current_iter % val_cfg["val_freq"] == 0)
+    # #region agent log
+    _agent_debug_log(
+        hypothesis_id="C",
+        location="train.py:final_validation",
+        message="final validation decision",
+        data={
+            "current_iter": current_iter,
+            "val_freq": None if val_cfg is None else val_cfg.get("val_freq"),
+            "run_final_val": run_final_val,
+        },
+    )
+    # #endregion
+    if run_final_val:
         for val_loader in val_loaders:
-            model.validation(val_loader, current_iter, tb_logger, opt["val"]["save_img"])
+            model.validation(val_loader, current_iter, tb_logger, val_cfg["save_img"])
+    elif val_cfg is not None:
+        logger.info(
+            "Skip final validation: current_iter=%s is not on val_freq=%s.",
+            current_iter,
+            val_cfg["val_freq"],
+        )
     if tb_logger:
         tb_logger.close()
 

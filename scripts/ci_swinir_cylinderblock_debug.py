@@ -161,8 +161,8 @@ def build_train_command(
         "datasets:train:num_worker_per_gpu=0",
         # Single-GPU debug: avoid DataParallel when num_gpu:auto sees all GPUs.
         "num_gpu=1",
-        # Full-resolution val on 1280 TIFFs is slow; skip during CI smoke.
-        "val:val_freq=999999",
+        # Full-resolution val on large TIFFs OOMs on 32GB GPUs; skip CI smoke validation.
+        "val=~",
     ]
 
     train_args = [
