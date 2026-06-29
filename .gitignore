@@ -63,3 +63,5 @@ models/
 results/
 experiments/
 ppt/
+.ci_storage/
+.ci_experiments_root
