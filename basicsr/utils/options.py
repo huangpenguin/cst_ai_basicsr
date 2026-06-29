@@ -272,6 +272,18 @@ def parse_options(root_path, is_train=True):
         opt["path"]["log"] = results_root
         opt["path"]["visualization"] = osp.join(results_root, "visualization")
 
+    # Re-apply force_yml so CLI overrides win over debug defaults (e.g. val:val_freq).
+    if args.force_yml is not None:
+        for entry in args.force_yml:
+            keys, value = entry.split("=")
+            keys, value = keys.strip(), value.strip()
+            value = _postprocess_yml_value(value)
+            eval_str = "opt"
+            for key in keys.split(":"):
+                eval_str += f'["{key}"]'
+            eval_str += "=value"
+            exec(eval_str)
+
     return opt, args
 
 

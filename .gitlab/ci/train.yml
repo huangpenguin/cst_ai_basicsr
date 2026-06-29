@@ -176,15 +176,15 @@ gpu_smoke:
   script:
     - bash -lc "${SMOKE_COMMAND}"
 
-# Short SwinIR train repro: tiny dataset, 1 GPU, CUDA_LAUNCH_BLOCKING=1, ~minutes.
-# Play manually before train_cylinderblock_swinir_graydn when debugging CUDA/shape issues.
+# Short SwinIR train repro: tiny dataset, 1 GPU, ~minutes.
+# Set CI_DEBUG_CUDA_LAUNCH_BLOCKING=1 only when debugging CUDA errors (very slow with DataParallel).
 train_cylinderblock_swinir_debug:
   extends:
     - .gpu_docker_base
     - .gpu_debug_artifacts
   timeout: 1h
   variables:
-    CUDA_LAUNCH_BLOCKING: "1"
+    CUDA_VISIBLE_DEVICES: "0"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual

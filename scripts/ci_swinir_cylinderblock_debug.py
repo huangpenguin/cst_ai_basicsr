@@ -159,6 +159,10 @@ def build_train_command(
         f"train:total_iter={total_iter}",
         f"datasets:train:batch_size_per_gpu={batch_size_per_gpu}",
         "datasets:train:num_worker_per_gpu=0",
+        # Single-GPU debug: avoid DataParallel when num_gpu:auto sees all GPUs.
+        "num_gpu=1",
+        # Full-resolution val on 1280 TIFFs is slow; skip during CI smoke.
+        "val:val_freq=999999",
     ]
 
     train_args = [
@@ -217,7 +221,8 @@ def print_config(
 
 def main(argv: Iterable[str] | None = None) -> None:
     _ = argv
-    os.environ.setdefault("CUDA_LAUNCH_BLOCKING", "1")
+    if os.environ.get("CI_DEBUG_CUDA_LAUNCH_BLOCKING", "0") == "1":
+        os.environ.setdefault("CUDA_LAUNCH_BLOCKING", "1")
 
     max_slices = _env_int("CI_DEBUG_MAX_SLICES", 5)
     total_iter = _env_int("CI_DEBUG_TOTAL_ITER", 30)
