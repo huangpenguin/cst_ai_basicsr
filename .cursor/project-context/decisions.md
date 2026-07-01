@@ -15,9 +15,19 @@ Runner mounts (all users, no per-user config):
 volumes = ["/cache", "/mnt/data:/data:ro", "/mnt/home:/home:rw"]
 ```
 
-Env vars: `DATA_DIR`, `PROJECT_NAME`, `WORK_DIR`, optional `DATASET_DIR`, `OUTPUT_DIR`.
+Env vars: `DATA_DIR`, `PROJECT_NAME`, `WORK_DIR`, `CST_STORAGE_USER`, optional `DATASET_DIR`, `OUTPUT_DIR`.
 
-Devcontainer host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOUNT_SOURCE=/mnt/home`.
+CI training outputs (container `/home/<CST_STORAGE_USER>/cst_ai/`, host `/mnt/home/<CST_STORAGE_USER>/cst_ai/`).
+Default `CST_STORAGE_USER=huang` in `.gitlab/ci/train.yml` (not `GITLAB_USER_LOGIN`).
+
+Devcontainer / docker-dev host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOUNT_SOURCE=/mnt/home`. Dev Container + compose: see `.devcontainer/README.md`.
+
+## Cylinderblock preprocess geometry (2026-06)
+
+- GT: `0-300kV_100uA/XY`, 1530×1530, no transform.
+- LQ: rotate CW per batch (`260520` 193°, `260527` 91°), `nearest` edge fill, bilinear resize to 1530.
+- Script: `scripts/preprocess_cylinderblock_swinir.py`; previews: `scripts/preview_cylinderblock_preprocess.py`.
+- CI does **not** preprocess; dataset must exist at `/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired` before `train_cylinderblock_swinir_graydn`.
 
 BasicSR: `PROJECT_NAME=cst_ai`, raw backup at `/mnt/data/cst_ai/`.
 

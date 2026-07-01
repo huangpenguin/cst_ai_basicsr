@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Prepare paired Cylinderblock TIFF data for SwinIR grayscale denoising.
 
-The raw Cylinderblock scans are classic uncompressed uint16 TIFF files. This
-script intentionally keeps the output in uint16 TIFF form and records the
-normalization range separately, so the training dataset can map raw physical
-intensity values to float tensors without percentile clipping.
+Geometry (per batch):
+  - Teacher GT (300 kV / ``0-300kV_100uA``): full 1530x1530, no rotation.
+  - Noisy LQ scans: batch-specific clockwise rotation (nearest-edge fill), then bilinear
+    resize to 1530x1530 so LQ/GT share the same canvas without black wedges.
+    - ``260520`` (Cylinderblock 2): 193° CW
+    - ``260527`` (Cylinderblock 4): 91° CW
+
+Outputs uint16 TIFF pairs plus ``manifest.csv`` and ``normalization.json``.
 """
 
 from __future__ import annotations
@@ -15,11 +19,25 @@ import json
 import math
 import os
 import shutil
-import struct
-from array import array
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+SCRIPTS = Path(__file__).resolve().parent
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+from cylinderblock_tiff_io import (  # noqa: E402
+    TiffImage,
+    array_to_u16_bytes,
+    read_tiff,
+    resize_u16,
+    rotate_u16_cw,
+    u16_bytes_to_array,
+    u16_stats,
+    write_u16_tiff,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA_ROOT = Path("/mnt/data/cst_ai/data_0607")
@@ -28,21 +46,9 @@ INDEX_START = 130
 INDEX_END = 750
 GT_DIR = "0-300kV_100uA"
 TARGET_PLANE = "XY"
-
-TYPE_SIZES = {
-    1: 1,  # BYTE
-    2: 1,  # ASCII
-    3: 2,  # SHORT
-    4: 4,  # LONG
-    5: 8,  # RATIONAL
-    6: 1,  # SBYTE
-    7: 1,  # UNDEFINED
-    8: 2,  # SSHORT
-    9: 4,  # SLONG
-    10: 8,  # SRATIONAL
-    11: 4,  # FLOAT
-    12: 8,  # DOUBLE
-}
+GT_SIZE = 1530
+LQ_SIZE = 1280
+LQ_FIT_MODE = "resize"
 
 
 @dataclass(frozen=True)
@@ -50,19 +56,7 @@ class ScanSpec:
     batch: str
     root_rel: Path
     noisy_dirs: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class TiffImage:
-    path: Path
-    endian: str
-    width: int
-    height: int
-    bits_per_sample: int
-    compression: int
-    sample_format: int
-    photometric: int
-    pixel_bytes: bytes
+    lq_rotation_deg_cw: float
 
 
 @dataclass(frozen=True)
@@ -77,10 +71,15 @@ class PairRecord:
     gt_src: Path
     lq_out: Path
     gt_out: Path
-    crop_top: int
-    crop_left: int
-    width: int
-    height: int
+    gt_width: int
+    gt_height: int
+    lq_width: int
+    lq_height: int
+    lq_rotation_deg_cw: float
+    lq_fit_mode: str
+    lq_scale: float
+    output_width: int
+    output_height: int
 
     @property
     def pair_id(self) -> str:
@@ -99,6 +98,7 @@ SCAN_SPECS = (
             "9-110kV_80uA",
             "1-110kV_90uA",
         ),
+        lq_rotation_deg_cw=193.0,
     ),
     ScanSpec(
         batch="260527",
@@ -109,242 +109,53 @@ SCAN_SPECS = (
             "2-150kV_50uA",
             "1-150kV_60uA",
         ),
+        lq_rotation_deg_cw=91.0,
     ),
 )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Create paired LQ/GT uint16 TIFF data for Cylinderblock SwinIR denoising."
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
+    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
+    parser.add_argument("--index-start", type=int, default=INDEX_START)
+    parser.add_argument("--index-end", type=int, default=INDEX_END)
     parser.add_argument(
-        "--data-root", type=Path, default=DEFAULT_DATA_ROOT, help="Root containing raw data_0607 scans."
+        "--lq-rotation-deg",
+        type=float,
+        default=None,
+        help="Optional override: apply the same clockwise LQ rotation to all batches.",
     )
-    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT, help="Output paired dataset root.")
-    parser.add_argument("--index-start", type=int, default=INDEX_START, help="First slice index, inclusive.")
-    parser.add_argument("--index-end", type=int, default=INDEX_END, help="Last slice index, inclusive.")
     parser.add_argument(
         "--norm-mode",
         choices=("uint16_full", "global_dataset"),
         default="uint16_full",
-        help="Fixed linear normalization recorded in normalization.json.",
     )
-    parser.add_argument(
-        "--split-mode",
-        choices=("tail", "modulo"),
-        default="tail",
-        help="Validation split policy by slice index.",
-    )
-    parser.add_argument("--val-fraction", type=float, default=0.10, help="Validation fraction for tail split.")
-    parser.add_argument("--val-count", type=int, default=None, help="Explicit validation slice count for tail split.")
-    parser.add_argument("--val-modulo", type=int, default=10, help="Modulo divisor for modulo split.")
-    parser.add_argument("--val-remainder", type=int, default=0, help="Modulo remainder assigned to validation.")
-    parser.add_argument("--max-slices", type=int, default=None, help="Limit slices for quick validation runs.")
-    parser.add_argument("--dry-run", action="store_true", help="Validate and summarize without writing output files.")
-    parser.add_argument(
-        "--stats-only", action="store_true", help="Only compute summary/statistics without writing output files."
-    )
-    parser.add_argument("--overwrite", action="store_true", help="Remove an existing output-root before writing.")
-    parser.add_argument(
-        "--lq-mode",
-        choices=("symlink", "hardlink", "copy"),
-        default="copy",
-        help="How to materialize LQ TIFF files.",
-    )
+    parser.add_argument("--split-mode", choices=("tail", "modulo"), default="tail")
+    parser.add_argument("--val-fraction", type=float, default=0.10)
+    parser.add_argument("--val-count", type=int, default=None)
+    parser.add_argument("--val-modulo", type=int, default=10)
+    parser.add_argument("--val-remainder", type=int, default=0)
+    parser.add_argument("--max-slices", type=int, default=None)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--stats-only", action="store_true")
+    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument(
         "--gt-duplicate-mode",
         choices=("hardlink", "symlink", "copy"),
         default="hardlink",
-        help="How to materialize duplicate GT names after the first cropped GT is written.",
     )
-    parser.add_argument("--no-progress", action="store_true", help="Disable periodic progress output.")
+    parser.add_argument("--no-progress", action="store_true")
     return parser.parse_args()
 
 
 def parse_scan_condition(scan_dir: str) -> tuple[int, int]:
-    """Return voltage kV and current uA from names like '4-110kV_30uA'."""
     try:
         condition = scan_dir.split("-", 1)[1]
         voltage, current = condition.split("_", 1)
         return int(voltage.removesuffix("kV")), int(current.removesuffix("uA"))
     except (IndexError, ValueError) as exc:
         raise ValueError(f"Cannot parse scan condition from directory name: {scan_dir}") from exc
-
-
-def tiff_value(endian: str, typ: int, count: int, raw_value: bytes) -> int | tuple[int, ...] | bytes:
-    size = TYPE_SIZES.get(typ)
-    if size is None:
-        return raw_value
-    total_size = size * count
-    value_bytes = raw_value[:total_size]
-    if typ == 3:
-        values = struct.unpack(endian + f"{count}H", value_bytes)
-    elif typ == 4:
-        values = struct.unpack(endian + f"{count}I", value_bytes)
-    elif typ == 8:
-        values = struct.unpack(endian + f"{count}h", value_bytes)
-    elif typ == 9:
-        values = struct.unpack(endian + f"{count}i", value_bytes)
-    else:
-        return value_bytes
-    return values[0] if count == 1 else values
-
-
-def read_tiff(path: Path, load_pixels: bool = True) -> TiffImage:
-    with path.open("rb") as file:
-        header = file.read(8)
-        byte_order = header[:2]
-        if byte_order == b"II":
-            endian = "<"
-        elif byte_order == b"MM":
-            endian = ">"
-        else:
-            raise ValueError(f"Not a classic TIFF file: {path}")
-
-        magic = struct.unpack(endian + "H", header[2:4])[0]
-        if magic != 42:
-            raise ValueError(f"Unsupported TIFF magic {magic}: {path}")
-
-        ifd_offset = struct.unpack(endian + "I", header[4:8])[0]
-        file.seek(ifd_offset)
-        entry_count = struct.unpack(endian + "H", file.read(2))[0]
-        tags: dict[int, int | tuple[int, ...] | bytes] = {}
-        for _ in range(entry_count):
-            entry = file.read(12)
-            tag, typ, count = struct.unpack(endian + "HHI", entry[:8])
-            value_or_offset = entry[8:12]
-            total_size = TYPE_SIZES.get(typ, 1) * count
-            if total_size <= 4:
-                value_bytes = value_or_offset[:total_size]
-            else:
-                current_pos = file.tell()
-                value_offset = struct.unpack(endian + "I", value_or_offset)[0]
-                file.seek(value_offset)
-                value_bytes = file.read(total_size)
-                file.seek(current_pos)
-            tags[tag] = tiff_value(endian, typ, count, value_bytes)
-
-    width = int(tags[256])
-    height = int(tags[257])
-    bits = tags.get(258, 16)
-    bits_per_sample = int(bits[0] if isinstance(bits, tuple) else bits)
-    compression = int(tags.get(259, 1))
-    photometric = int(tags.get(262, 1))
-    sample_format = int(tags.get(339, 1))
-    offsets = tags.get(273) or tags.get(324)
-    byte_counts = tags.get(279) or tags.get(325)
-    if offsets is None or byte_counts is None:
-        raise ValueError(f"TIFF is missing strip/tile offsets or byte counts: {path}")
-    if isinstance(offsets, int):
-        offsets = (offsets,)
-    if isinstance(byte_counts, int):
-        byte_counts = (byte_counts,)
-
-    if compression != 1 or bits_per_sample != 16 or sample_format != 1:
-        raise ValueError(
-            "Only uncompressed unsigned uint16 grayscale TIFF is supported: "
-            f"{path} (compression={compression}, bits={bits_per_sample}, sample_format={sample_format})"
-        )
-
-    pixel_bytes = b""
-    if load_pixels:
-        with path.open("rb") as file:
-            chunks = []
-            for offset, count in zip(offsets, byte_counts, strict=True):
-                file.seek(int(offset))
-                chunks.append(file.read(int(count)))
-            pixel_bytes = b"".join(chunks)
-    expected_bytes = width * height * 2
-    if load_pixels and len(pixel_bytes) < expected_bytes:
-        raise ValueError(
-            f"TIFF pixel payload is shorter than expected in {path}: {len(pixel_bytes)} < {expected_bytes}"
-        )
-    return TiffImage(
-        path=path,
-        endian=endian,
-        width=width,
-        height=height,
-        bits_per_sample=bits_per_sample,
-        compression=compression,
-        sample_format=sample_format,
-        photometric=photometric,
-        pixel_bytes=pixel_bytes[:expected_bytes] if load_pixels else b"",
-    )
-
-
-def crop_u16_bytes(image: TiffImage, left: int, top: int, width: int, height: int) -> bytes:
-    if left < 0 or top < 0 or left + width > image.width or top + height > image.height:
-        raise ValueError(f"Crop is outside image bounds for {image.path}")
-
-    row_bytes = image.width * 2
-    crop_row_bytes = width * 2
-    rows = []
-    for row in range(top, top + height):
-        start = row * row_bytes + left * 2
-        rows.append(image.pixel_bytes[start : start + crop_row_bytes])
-    cropped = b"".join(rows)
-    if image.endian == ">":
-        cropped = swap_u16_endian(cropped)
-    return cropped
-
-
-def swap_u16_endian(data: bytes) -> bytes:
-    return b"".join(data[i + 1 : i + 2] + data[i : i + 1] for i in range(0, len(data), 2))
-
-
-def pack_ifd_entry(tag: int, typ: int, count: int, value: int) -> bytes:
-    value_bytes = struct.pack("<H", value) + b"\x00\x00" if typ == 3 and count == 1 else struct.pack("<I", value)
-    return struct.pack("<HHI", tag, typ, count) + value_bytes
-
-
-def write_u16_tiff(path: Path, pixel_bytes: bytes, width: int, height: int, photometric: int = 1) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    expected_bytes = width * height * 2
-    if len(pixel_bytes) != expected_bytes:
-        raise ValueError(f"Pixel payload size mismatch for {path}: {len(pixel_bytes)} != {expected_bytes}")
-
-    entries = [
-        (256, 4, 1, width),
-        (257, 4, 1, height),
-        (258, 3, 1, 16),
-        (259, 3, 1, 1),
-        (262, 3, 1, photometric),
-        (273, 4, 1, 0),  # filled after IFD size is known
-        (277, 3, 1, 1),
-        (278, 4, 1, height),
-        (279, 4, 1, expected_bytes),
-        (296, 3, 1, 1),
-        (339, 3, 1, 1),
-    ]
-    ifd_size = 2 + len(entries) * 12 + 4
-    pixel_offset = 8 + ifd_size
-    entries = [(tag, typ, count, pixel_offset if tag == 273 else value) for tag, typ, count, value in entries]
-
-    with path.open("wb") as file:
-        file.write(b"II")
-        file.write(struct.pack("<H", 42))
-        file.write(struct.pack("<I", 8))
-        file.write(struct.pack("<H", len(entries)))
-        for entry in entries:
-            file.write(pack_ifd_entry(*entry))
-        file.write(struct.pack("<I", 0))
-        file.write(pixel_bytes)
-
-
-def u16_stats(pixel_bytes: bytes, endian: str = "<") -> tuple[int, int, int, int]:
-    values = array("H")
-    values.frombytes(pixel_bytes)
-    host_little = struct.pack("=H", 1) == b"\x01\x00"
-    file_little = endian == "<"
-    if host_little != file_little:
-        values.byteswap()
-    if not values:
-        return 0, 0, 0, 0
-    min_value = min(values)
-    max_value = max(values)
-    zero_count = values.count(0)
-    saturated_count = values.count(65535)
-    return min_value, max_value, zero_count, saturated_count
 
 
 def choose_indices(args: argparse.Namespace) -> list[int]:
@@ -361,7 +172,6 @@ def choose_indices(args: argparse.Namespace) -> list[int]:
 def assign_split(index: int, indices: list[int], args: argparse.Namespace) -> str:
     if args.split_mode == "modulo":
         return "val" if index % args.val_modulo == args.val_remainder else "train"
-
     if len(indices) <= 1:
         return "train"
     val_count = args.val_count
@@ -412,10 +222,17 @@ def build_records(args: argparse.Namespace) -> list[PairRecord]:
                         gt_src=gt_src,
                         lq_out=args.output_root / split / "LQ" / filename,
                         gt_out=args.output_root / split / "GT" / filename,
-                        crop_top=-1,
-                        crop_left=-1,
-                        width=-1,
-                        height=-1,
+                        gt_width=-1,
+                        gt_height=-1,
+                        lq_width=-1,
+                        lq_height=-1,
+                        lq_rotation_deg_cw=(
+                            args.lq_rotation_deg if args.lq_rotation_deg is not None else spec.lq_rotation_deg_cw
+                        ),
+                        lq_fit_mode=LQ_FIT_MODE,
+                        lq_scale=-1.0,
+                        output_width=-1,
+                        output_height=-1,
                     )
                 )
 
@@ -432,12 +249,11 @@ def validate_and_enrich_records(records: Iterable[PairRecord]) -> list[PairRecor
     for record in records:
         lq = meta_cache.setdefault(record.lq_src, read_tiff(record.lq_src, load_pixels=False))
         gt = meta_cache.setdefault(record.gt_src, read_tiff(record.gt_src, load_pixels=False))
-        if lq.width > gt.width or lq.height > gt.height:
-            raise ValueError(
-                f"LQ is larger than GT for {record.pair_id}: LQ={lq.width}x{lq.height}, GT={gt.width}x{gt.height}"
-            )
-        crop_left = (gt.width - lq.width) // 2
-        crop_top = (gt.height - lq.height) // 2
+        if lq.width != LQ_SIZE or lq.height != LQ_SIZE:
+            raise ValueError(f"Expected LQ {LQ_SIZE}x{LQ_SIZE}, got {lq.width}x{lq.height}: {record.lq_src}")
+        if gt.width != GT_SIZE or gt.height != GT_SIZE:
+            raise ValueError(f"Expected GT {GT_SIZE}x{GT_SIZE}, got {gt.width}x{gt.height}: {record.gt_src}")
+        lq_scale = gt.width / lq.width
         enriched.append(
             PairRecord(
                 split=record.split,
@@ -450,13 +266,31 @@ def validate_and_enrich_records(records: Iterable[PairRecord]) -> list[PairRecor
                 gt_src=record.gt_src,
                 lq_out=record.lq_out,
                 gt_out=record.gt_out,
-                crop_top=crop_top,
-                crop_left=crop_left,
-                width=lq.width,
-                height=lq.height,
+                gt_width=gt.width,
+                gt_height=gt.height,
+                lq_width=lq.width,
+                lq_height=lq.height,
+                lq_rotation_deg_cw=record.lq_rotation_deg_cw,
+                lq_fit_mode=LQ_FIT_MODE,
+                lq_scale=lq_scale,
+                output_width=gt.width,
+                output_height=gt.height,
             )
         )
     return enriched
+
+
+def process_lq_pixels(record: PairRecord) -> bytes:
+    lq = read_tiff(record.lq_src)
+    arr = u16_bytes_to_array(lq)
+    rotated = rotate_u16_cw(arr, record.lq_rotation_deg_cw)
+    fitted = resize_u16(rotated, record.output_height, record.output_width)
+    return array_to_u16_bytes(fitted)
+
+
+def process_gt_pixels(record: PairRecord) -> tuple[bytes, int]:
+    gt = read_tiff(record.gt_src)
+    return array_to_u16_bytes(u16_bytes_to_array(gt)), gt.photometric
 
 
 def prepare_output_root(output_root: Path, overwrite: bool) -> None:
@@ -469,30 +303,11 @@ def prepare_output_root(output_root: Path, overwrite: bool) -> None:
         (output_root / split / "GT").mkdir(parents=True, exist_ok=True)
 
 
-def relative_symlink(src: Path, dst: Path) -> None:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    target = os.path.relpath(src.resolve(), dst.parent.resolve())
-    dst.symlink_to(target)
-
-
-def materialize_file(src: Path, dst: Path, mode: str) -> None:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    if mode == "symlink":
-        relative_symlink(src, dst)
-    elif mode == "hardlink":
-        try:
-            os.link(src, dst)
-        except OSError:
-            shutil.copy2(src, dst)
-    elif mode == "copy":
-        shutil.copy2(src, dst)
-    else:
-        raise ValueError(f"Unsupported materialization mode: {mode}")
-
-
 def materialize_duplicate(src: Path, dst: Path, mode: str) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     if mode == "symlink":
+        from cylinderblock_tiff_io import relative_symlink
+
         relative_symlink(src, dst)
     elif mode == "hardlink":
         try:
@@ -513,23 +328,22 @@ def compute_dataset_stats(records: Iterable[PairRecord]) -> dict[str, int]:
         "saturated_pixels": 0,
         "images_scanned": 0,
     }
-    gt_cache: set[tuple[Path, int, int, int, int]] = set()
+    gt_cache: set[tuple[str, str, int]] = set()
     for record in records:
-        lq = read_tiff(record.lq_src)
-        mn, mx, zeros, saturated = u16_stats(lq.pixel_bytes, lq.endian)
+        lq_bytes = process_lq_pixels(record)
+        mn, mx, zeros, saturated = u16_stats(lq_bytes)
         stats["raw_min"] = min(stats["raw_min"], mn)
         stats["raw_max"] = max(stats["raw_max"], mx)
         stats["zero_pixels"] += zeros
         stats["saturated_pixels"] += saturated
         stats["images_scanned"] += 1
 
-        gt_key = (record.gt_src, record.crop_left, record.crop_top, record.width, record.height)
+        gt_key = (record.split, record.batch, record.slice_index)
         if gt_key in gt_cache:
             continue
         gt_cache.add(gt_key)
-        gt = read_tiff(record.gt_src)
-        cropped = crop_u16_bytes(gt, record.crop_left, record.crop_top, record.width, record.height)
-        mn, mx, zeros, saturated = u16_stats(cropped, "<")
+        gt_bytes, _ = process_gt_pixels(record)
+        mn, mx, zeros, saturated = u16_stats(gt_bytes)
         stats["raw_min"] = min(stats["raw_min"], mn)
         stats["raw_max"] = max(stats["raw_max"], mx)
         stats["zero_pixels"] += zeros
@@ -542,7 +356,6 @@ def compute_dataset_stats(records: Iterable[PairRecord]) -> dict[str, int]:
 
 
 def write_manifest(records: list[PairRecord], output_root: Path) -> None:
-    manifest_path = output_root / "manifest.csv"
     fieldnames = [
         "split",
         "pair_id",
@@ -555,12 +368,17 @@ def write_manifest(records: list[PairRecord], output_root: Path) -> None:
         "gt_path",
         "source_lq_path",
         "source_gt_path",
-        "gt_crop_top",
-        "gt_crop_left",
-        "width",
-        "height",
+        "lq_rotation_deg_cw",
+        "lq_fit_mode",
+        "lq_scale",
+        "lq_width",
+        "lq_height",
+        "gt_width",
+        "gt_height",
+        "output_width",
+        "output_height",
     ]
-    with manifest_path.open("w", newline="", encoding="utf-8") as file:
+    with (output_root / "manifest.csv").open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         for record in records:
@@ -577,10 +395,15 @@ def write_manifest(records: list[PairRecord], output_root: Path) -> None:
                     "gt_path": record.gt_out.relative_to(output_root),
                     "source_lq_path": record.lq_src,
                     "source_gt_path": record.gt_src,
-                    "gt_crop_top": record.crop_top,
-                    "gt_crop_left": record.crop_left,
-                    "width": record.width,
-                    "height": record.height,
+                    "lq_rotation_deg_cw": record.lq_rotation_deg_cw,
+                    "lq_fit_mode": record.lq_fit_mode,
+                    "lq_scale": record.lq_scale,
+                    "lq_width": record.lq_width,
+                    "lq_height": record.lq_height,
+                    "gt_width": record.gt_width,
+                    "gt_height": record.gt_height,
+                    "output_width": record.output_width,
+                    "output_height": record.output_height,
                 }
             )
 
@@ -611,12 +434,21 @@ def write_normalization(
         "pair_count": len(records),
         "train_pair_count": sum(1 for record in records if record.split == "train"),
         "val_pair_count": sum(1 for record in records if record.split == "val"),
-        "gt_crop": {
-            "mode": "center",
-            "height": records[0].height if records else None,
-            "width": records[0].width if records else None,
-            "top": records[0].crop_top if records else None,
-            "left": records[0].crop_left if records else None,
+        "geometry": {
+            "gt": {"width": GT_SIZE, "height": GT_SIZE, "rotation_deg_cw": 0, "crop": None},
+            "lq_by_batch": {
+                spec.batch: {
+                    "native_width": LQ_SIZE,
+                    "native_height": LQ_SIZE,
+                    "rotation_deg_cw": spec.lq_rotation_deg_cw,
+                    "fit_mode": LQ_FIT_MODE,
+                    "edge_mode": "nearest",
+                    "scale": GT_SIZE / LQ_SIZE,
+                    "output_width": GT_SIZE,
+                    "output_height": GT_SIZE,
+                }
+                for spec in SCAN_SPECS
+            },
         },
         "stats": stats,
     }
@@ -630,14 +462,14 @@ def create_dataset(records: list[PairRecord], args: argparse.Namespace) -> dict[
 
     gt_cache: dict[tuple[str, str, int], Path] = {}
     for idx, record in enumerate(records, start=1):
-        materialize_file(record.lq_src, record.lq_out, args.lq_mode)
+        lq_bytes = process_lq_pixels(record)
+        write_u16_tiff(record.lq_out, lq_bytes, record.output_width, record.output_height)
 
         gt_key = (record.split, record.batch, record.slice_index)
         cached_gt = gt_cache.get(gt_key)
         if cached_gt is None:
-            gt = read_tiff(record.gt_src)
-            cropped = crop_u16_bytes(gt, record.crop_left, record.crop_top, record.width, record.height)
-            write_u16_tiff(record.gt_out, cropped, record.width, record.height, gt.photometric)
+            gt_bytes, photometric = process_gt_pixels(record)
+            write_u16_tiff(record.gt_out, gt_bytes, record.gt_width, record.gt_height, photometric)
             gt_cache[gt_key] = record.gt_out
         else:
             materialize_duplicate(cached_gt, record.gt_out, args.gt_duplicate_mode)
@@ -645,10 +477,7 @@ def create_dataset(records: list[PairRecord], args: argparse.Namespace) -> dict[
         if not args.no_progress and (idx % 250 == 0 or idx == len(records)):
             print(f"Processed {idx}/{len(records)} pairs", flush=True)
 
-    return {
-        "unique_cropped_gt": len(gt_cache),
-        "materialized_pairs": len(records),
-    }
+    return {"unique_gt": len(gt_cache), "materialized_pairs": len(records)}
 
 
 def summarize(records: list[PairRecord], stats: dict[str, int] | None = None) -> None:
@@ -656,7 +485,14 @@ def summarize(records: list[PairRecord], stats: dict[str, int] | None = None) ->
     val_count = sum(1 for record in records if record.split == "val")
     currents = sorted({f"{record.batch}:{record.voltage_kv}kV_{record.current_ua}uA" for record in records})
     print(f"Pairs: total={len(records)} train={train_count} val={val_count}")
-    print(f"Image size after pairing: {records[0].width}x{records[0].height}" if records else "No records")
+    if records:
+        print(
+            f"Output size: {records[0].output_width}x{records[0].output_height} "
+            f"(GT full {GT_SIZE}, LQ {LQ_SIZE} -> rotate + {LQ_FIT_MODE} to {GT_SIZE})"
+        )
+        rotations = {record.batch: record.lq_rotation_deg_cw for record in records}
+        for batch in sorted(rotations):
+            print(f"  batch {batch}: LQ rotate {rotations[batch]}° CW")
     print("Noisy conditions:")
     for current in currents:
         print(f"  - {current}")
@@ -697,7 +533,7 @@ def main() -> None:
     write_manifest(records, args.output_root)
     write_normalization(records, args.output_root, args, stats)
     print(f"Wrote paired dataset to: {args.output_root}")
-    print(f"Unique cropped GT files: {create_result['unique_cropped_gt']}")
+    print(f"Unique GT files: {create_result['unique_gt']}")
 
 
 if __name__ == "__main__":

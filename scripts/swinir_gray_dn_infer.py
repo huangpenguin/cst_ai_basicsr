@@ -57,6 +57,6 @@ def infer_gray(
         mod_pad_w = (window_size - w % window_size) % window_size
         img = F.pad(img, (0, mod_pad_w, 0, mod_pad_h), "reflect")
         output = model(img)
-        output = output[:, :, : h + mod_pad_h, : w + mod_pad_w]
+        output = output[:, :, :h, :w]
 
     return output.squeeze().float().cpu().clamp_(0, 1).numpy()

@@ -28,16 +28,42 @@ class CiRunPaths:
     dataset_dir: Path | None = None
 
 
+def resolve_storage_user(*, login: str | None = None) -> str:
+    """Unix account for NFS layout (/home/<user> in CI, /mnt/home/<user> on host).
+
+    GitLab ``GITLAB_USER_LOGIN`` (e.g. huang.pengbin) often differs from the GPU
+    host account (e.g. huang). Set ``CST_STORAGE_USER`` in CI or shell to align paths.
+    """
+    if login:
+        return login
+    if user := os.environ.get("CST_STORAGE_USER"):
+        return user
+    if user := os.environ.get("USER"):
+        return user
+    return os.environ.get("GITLAB_USER_LOGIN") or "ci"
+
+
+def container_to_host_path(path: Path) -> Path:
+    """Map runner container bind mounts to GPU host paths for SSH / docker-dev."""
+    parts = path.parts
+    if len(parts) >= 3 and parts[1] == "home":
+        return Path("/mnt/home").joinpath(*parts[2:])
+    if len(parts) >= 2 and parts[1] == "mnt" and len(parts) >= 4 and parts[2] == "home":
+        return path
+    return path
+
+
 def resolve_storage_root(
     *,
     login: str | None = None,
     project_dir: Path | None = None,
 ) -> Path:
     """Pick first writable persistent root: /home, /cache, then repo fallback."""
-    user = login or os.environ.get("GITLAB_USER_LOGIN") or os.environ.get("USER") or "ci"
+    user = resolve_storage_user(login=login)
     repo = project_dir or Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).resolve().parents[1]))
     candidates = [
-        Path(f"/home/{user}/cst_ai"),
+        Path(f"/mnt/home/{user}/cst_ai"),  # GPU host SSH (NFS)
+        Path(f"/home/{user}/cst_ai"),  # CI / docker-dev container (bind-mounted NFS)
         Path(f"/cache/{user}/cst_ai"),
         repo / ".ci_storage" / user / "cst_ai",
     ]
@@ -101,6 +127,15 @@ def emit_shell_exports(paths: CiRunPaths) -> None:
         print(f'export {key}="{value}"')
 
 
+def update_latest_symlink(paths: CiRunPaths) -> Path:
+    """Point storage_root/ci_outputs/latest at this run (host + CI container)."""
+    latest = paths.storage_root / "ci_outputs" / "latest"
+    if latest.is_symlink() or latest.exists():
+        latest.unlink()
+    latest.symlink_to(paths.run_root, target_is_directory=True)
+    return latest
+
+
 def print_paths(paths: CiRunPaths, *, host_hint: bool = True) -> None:
     print(f"storage_root={paths.storage_root}")
     print(f"CI_RUN_ROOT={paths.run_root}")
@@ -109,10 +144,15 @@ def print_paths(paths: CiRunPaths, *, host_hint: bool = True) -> None:
     if paths.dataset_dir is not None:
         print(f"TRAIN_DATASET_DIR={paths.dataset_dir}")
     if host_hint:
-        print("--- persistent on GPU host (same path if /cache and /home are bind-mounted) ---")
-        print(f"  text logs: {paths.experiments_root}/<exp_name>/train_*.log")
-        print(f"  tensorboard: {paths.tb_logger_root}/<exp_name>/")
-        print("  serve TB on host: bash scripts/serve_tensorboard.sh", paths.storage_root / "ci_outputs")
+        host_root = container_to_host_path(paths.storage_root)
+        host_run = container_to_host_path(paths.run_root)
+        print("--- GPU host (SSH / docker-dev with HOME_MOUNT_SOURCE=/mnt/home) ---")
+        print(f"  storage_root: {host_root}")
+        print(f"  this run:     {host_run}")
+        print(f"  latest link:  {host_root / 'ci_outputs' / 'latest'}")
+        print(f"  text logs:    {host_run}/experiments/<exp_name>/train_*.log")
+        print(f"  tensorboard:  {host_run}/tb_logger/<exp_name>/")
+        print("  serve TB: bash scripts/serve_tensorboard.sh", host_root / "ci_outputs")
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -128,8 +168,15 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Dataset folder under storage_root/datasets/",
     )
     prepare.add_argument("--write-markers", action="store_true", help="Write .ci_* marker files in CI_PROJECT_DIR")
+    prepare.add_argument(
+        "--latest-symlink",
+        action="store_true",
+        help="Update storage_root/ci_outputs/latest -> this run",
+    )
 
     sub.add_parser("resolve", help="Print storage_root only")
+    host = sub.add_parser("host-path", help="Print GPU host path for container storage_root")
+    host.add_argument("container_path", nargs="?", default=None, help="Container path (default: resolve storage_root)")
     return parser.parse_args(argv)
 
 
@@ -137,6 +184,13 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.command == "resolve":
         print(resolve_storage_root())
+        return 0
+
+    if args.command == "host-path":
+        if args.container_path:
+            print(container_to_host_path(Path(args.container_path)))
+        else:
+            print(container_to_host_path(resolve_storage_root()))
         return 0
 
     storage_root = resolve_storage_root()
@@ -150,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
     project_dir = Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).resolve().parents[1]))
     if args.write_markers:
         write_markers(project_dir, paths)
+
+    if args.latest_symlink:
+        update_latest_symlink(paths)
 
     if args.emit_shell:
         emit_shell_exports(paths)

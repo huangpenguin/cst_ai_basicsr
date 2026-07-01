@@ -13,13 +13,14 @@
 
 set -euo pipefail
 
-LOGIN="${GITLAB_USER_LOGIN:-${USER:-ci}}"
+LOGIN="${CST_STORAGE_USER:-${USER:-ci}}"
 LOGDIR="${1:-}"
 
 if [[ -z "${LOGDIR}" ]]; then
   for candidate in \
-    "/cache/${LOGIN}/cst_ai/ci_outputs" \
-    "/home/${LOGIN}/cst_ai/ci_outputs"; do
+    "/mnt/home/${LOGIN}/cst_ai/ci_outputs" \
+    "/home/${LOGIN}/cst_ai/ci_outputs" \
+    "/cache/${LOGIN}/cst_ai/ci_outputs"; do
     if [[ -d "${candidate}" ]]; then
       LOGDIR="${candidate}"
       break
@@ -29,7 +30,7 @@ fi
 
 if [[ -z "${LOGDIR}" || ! -d "${LOGDIR}" ]]; then
   echo "ERROR: no ci_outputs directory found." >&2
-  echo "Pass explicitly: bash scripts/serve_tensorboard.sh /cache/${LOGIN}/cst_ai/ci_outputs" >&2
+  echo "Pass explicitly: bash scripts/serve_tensorboard.sh /mnt/home/${LOGIN}/cst_ai/ci_outputs" >&2
   exit 1
 fi
 

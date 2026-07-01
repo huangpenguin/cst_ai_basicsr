@@ -54,13 +54,29 @@ swinir_cylinderblock_paired/
   normalization.json
 ```
 
-The raw LQ TIFFs are `1280x1280`; GT TIFFs are `1530x1530`. Preprocessing center
-crops GT to `1280x1280`, then writes matching basenames in `LQ` and `GT` so
-BasicSR folder pairing is unambiguous.
+The raw LQ TIFFs are `1280x1280`; GT TIFFs are `1530x1530`. Preprocessing keeps the
+full GT image and does **not** center-crop it. Each noisy LQ slice is transformed per batch:
 
-LQ files are copied by default so the derived dataset is self-contained inside
-the CI `/home/${GITLAB_USER_LOGIN}` mount. Repeated GT files are hardlinked by
-default after the first cropped copy is written.
+| Batch | Rotation (CW) | Fit |
+|-------|---------------|-----|
+| `260520` (Cylinder 2) | 193° | bilinear resize → 1530×1530 |
+| `260527` (Cylinder 4) | 91° | bilinear resize → 1530×1530 |
+
+Rotation uses `nearest` edge fill (no black wedges at corners). LQ/GT share the same
+output canvas size for paired training.
+
+Preview alignment (slice 250/450):
+
+```bash
+uv run python scripts/preview_cylinderblock_preprocess.py --slice 250
+```
+
+Compare pretrained grayDN noise15 vs noise50 on preprocessed LQ:
+
+```bash
+uv run python scripts/download_swinir_release.py --only 004_grayDN
+uv run python scripts/compare_swinir_cylinder_pretrained_dn.py --slice 250
+```
 
 By default, validation uses the tail slice block rather than random slice
 sampling. This reduces leakage from adjacent slices between train and val.
@@ -133,50 +149,50 @@ uv run python -m torch.distributed.launch \
   datasets:val:normalization=/home/${USER}/cst_ai/datasets/swinir_cylinderblock_paired/normalization.json
 ```
 
-The GitLab manual job `train_cylinderblock_swinir_graydn` uses the same yml and
-defaults to `/home/${GITLAB_USER_LOGIN}/cst_ai/datasets/swinir_cylinderblock_paired`.
+The GitLab manual job `train_cylinderblock_swinir_graydn` uses the same yml.
+Dataset path in CI: `/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired`
+(default `CST_STORAGE_USER=huang` in `.gitlab/ci/train.yml`).
 
-For debugging CUDA / shape issues without a long DDP run, use the manual CI job
-`train_cylinderblock_swinir_debug` (see `scripts/ci_swinir_cylinderblock_debug.py`).
-It preprocesses only a few slices, runs single-GPU training for ~30 iterations,
-and uploads logs under `results/cylinderblock_swinir_debug/`.
+**CI does not run preprocessing.** Prepare and inspect the paired dataset on the GPU
+host before manually playing the training job:
+
+```bash
+export DATA_DIR=/mnt/data
+uv run python scripts/preprocess_cylinderblock_swinir.py \
+  --data-root /mnt/data/cst_ai/data_0607 \
+  --output-root /mnt/home/${USER}/cst_ai/datasets/swinir_cylinderblock_paired \
+  --overwrite
+# Inspect manifest.csv, normalization.json, and a few LQ/GT pairs, then trigger CI.
+```
 
 ## Monitoring (logs and TensorBoard)
 
 CI long training writes **persistent** outputs under the runner bind mount
-(`/cache` or `/home` on the GPU host — same path inside the job container):
+(`/mnt/home` on the GPU host — same path inside the job container as `/home`):
 
 ```text
-{storage_root}/ci_outputs/{PipelineID}/
+/mnt/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/{PipelineID}/
   experiments/<exp_name>/train_*.log    # text logs, checkpoints
   tb_logger/<exp_name>/                 # TensorBoard events
 ```
 
-`storage_root` is usually `/cache/${GITLAB_USER_LOGIN}/cst_ai` or
-`/home/${GITLAB_USER_LOGIN}/cst_ai`. On the GPU server host, list:
-
-```bash
-ls /cache/huang.pengbin/cst_ai/ci_outputs/
-# or
-ls /mnt/home/huang.pengbin/cst_ai/ci_outputs/
-```
+`latest` symlink: `/mnt/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/latest`
 
 **Text log while training** (SSH to GPU host):
 
 ```bash
-tail -f /cache/*/cst_ai/ci_outputs/*/experiments/*/train_*.log
+tail -f /mnt/home/huang/cst_ai/ci_outputs/latest/experiments/*/train_*.log
 ```
 
-**TensorBoard** (on GPU host, no uv needed):
+**TensorBoard** (on GPU host):
 
 ```bash
-bash scripts/serve_tensorboard.sh /cache/huang.pengbin/cst_ai/ci_outputs
+bash scripts/serve_tensorboard.sh /mnt/home/huang/cst_ai/ci_outputs
 ssh -L 6006:localhost:6006 user@gpu-host   # from laptop
 # http://localhost:6006
 ```
 
-Curves: `losses/l_pix`, `metrics/CylinderblockPairedVal/psnr`, `metrics/.../ssim`.
-Debug jobs (`--debug`) skip TensorBoard; use job log or artifacts.
+Curves: `losses/l_pix` (training uses `val=~`; run separate val after training if needed).
 
 **Note:** GitLab `cache:` in CI caches `.venv/` between jobs — that is separate
 from the `/cache` volume and only speeds up dependency install.

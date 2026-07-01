@@ -1,0 +1,37 @@
+# Shared GPU dev service — used by Dev Container and scripts/docker-dev.sh.
+#
+# Host env (required for compose up / devcontainer rebuild):
+#   export DATA_MOUNT_SOURCE=/mnt/data
+#   export HOME_MOUNT_SOURCE=/mnt/home    # optional; defaults to /mnt/home
+#
+# Do NOT set `user:` here — Dev Container uses remoteUser + updateRemoteUserUID.
+# CLI runs pass --user $(id -u):$(id -g) via scripts/docker-dev.sh.
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USERNAME: vscode
+        USER_UID: "1000"
+        USER_GID: "1000"
+    image: ${MLOPS_PROJECT_IMAGE:-basicsr-mlops-gpu:2.6.0-cu124}
+    working_dir: /workspace
+    environment:
+      PYTHONUNBUFFERED: "1"
+      UV_LINK_MODE: copy
+      UV_CACHE_DIR: /workspace/.cache/uv
+      DATA_DIR: /data
+      PROJECT_NAME: ${PROJECT_NAME:-cst_ai}
+      CST_STORAGE_USER: ${CST_STORAGE_USER:-huang}
+    volumes:
+      - .:/workspace
+      - ${DATA_MOUNT_SOURCE:?Set DATA_MOUNT_SOURCE to the host data root (e.g. /mnt/data)}:/data:${DOCKER_DEV_DATA_MODE:-rw}
+      - ${HOME_MOUNT_SOURCE:-/mnt/home}:/home:rw
+    gpus: all
+    shm_size: ${DOCKER_DEV_SHM_SIZE:-16gb}
+    stdin_open: true
+    tty: true
+    entrypoint: ["tini", "--"]
+    command: ["bash"]

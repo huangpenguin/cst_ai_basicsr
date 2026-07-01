@@ -5,10 +5,12 @@ target-version = "py310"
 include = [
   "scripts/battery_tiff_io.py",
   "scripts/ci_gpu_smoke.py",
-  "scripts/ci_swinir_cylinderblock_debug.py",
+  "scripts/ci_storage.py",
+  "scripts/cylinderblock_tiff_io.py",
   "scripts/data_paths.py",
   "scripts/download_swinir_release.py",
-  "scripts/preprocess_cylinderblock_swinir.py",
+  "scripts/compare_swinir_cylinder_pretrained_dn.py",
+  "scripts/preview_cylinderblock_preprocess.py",
   "scripts/smoke_test_swinir_gray_dn.py",
   "scripts/smoke_test_swinir_gray_dn_battery.py",
   "scripts/swinir_gray_dn_infer.py",
@@ -23,7 +25,8 @@ select = ["E", "F", "B", "I"]
 [lint.per-file-ignores]
 "scripts/ci_gpu_smoke.py" = ["E402"]
 "scripts/smoke_test_swinir_gray_dn.py" = ["E402"]
-"scripts/smoke_test_swinir_gray_dn_battery.py" = ["E402"]
+  "scripts/compare_swinir_cylinder_pretrained_dn.py" = ["E402"]
+  "scripts/preview_cylinderblock_preprocess.py" = ["E402"]
 
 [format]
 line-ending = "lf"

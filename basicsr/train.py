@@ -1,5 +1,4 @@
 import datetime
-import json
 import logging
 import math
 import os
@@ -26,28 +25,6 @@ from basicsr.utils import (
     scandir,
 )
 from basicsr.utils.options import copy_opt_file, dict2str, parse_options
-
-# #region agent log
-_DEBUG_LOG_PATH = osp.join(osp.abspath(osp.join(__file__, osp.pardir, osp.pardir)), ".cursor", "debug-a9c5da.log")
-
-
-def _agent_debug_log(*, hypothesis_id: str, location: str, message: str, data: dict) -> None:
-    payload = {
-        "sessionId": "a9c5da",
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    try:
-        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload, default=str) + "\n")
-    except OSError:
-        pass
-
-
-# #endregion
 
 
 def _tb_logger_dir(root_path: str, exp_name: str) -> str:
@@ -200,47 +177,13 @@ def train_pipeline(root_path):
 
     # training
     logger.info(f"Start training from epoch: {start_epoch}, iter: {current_iter}")
-    # #region agent log
-    train_ds = opt["datasets"]["train"]
-    _agent_debug_log(
-        hypothesis_id="C",
-        location="train.py:pre_loop",
-        message="training loop config",
-        data={
-            "num_gpu": opt["num_gpu"],
-            "dist": opt["dist"],
-            "world_size": opt["world_size"],
-            "batch_size_per_gpu": train_ds["batch_size_per_gpu"],
-            "dataloader_batch_size": getattr(train_loader, "batch_size", None),
-            "num_workers": getattr(train_loader, "num_workers", None),
-            "cuda_launch_blocking": __import__("os").environ.get("CUDA_LAUNCH_BLOCKING"),
-            "cuda_device_count": torch.cuda.device_count(),
-            "total_iters": total_iters,
-        },
-    )
-    # #endregion
     data_timer, iter_timer = AvgTimer(), AvgTimer()
     start_time = time.time()
 
     for epoch in range(start_epoch, total_epochs + 1):
         train_sampler.set_epoch(epoch)
         prefetcher.reset()
-        # #region agent log
-        _t0 = time.perf_counter()
-        # #endregion
         train_data = prefetcher.next()
-        # #region agent log
-        _agent_debug_log(
-            hypothesis_id="B",
-            location="train.py:first_prefetch",
-            message="first prefetcher.next() completed",
-            data={
-                "elapsed_s": round(time.perf_counter() - _t0, 3),
-                "has_data": train_data is not None,
-                "lq_shape": list(train_data["lq"].shape) if train_data is not None else None,
-            },
-        )
-        # #endregion
 
         while train_data is not None:
             data_timer.record()
@@ -250,29 +193,8 @@ def train_pipeline(root_path):
                 break
             # update learning rate
             model.update_learning_rate(current_iter, warmup_iter=opt["train"].get("warmup_iter", -1))
-            # training
-            # #region agent log
-            _t_feed = time.perf_counter()
-            # #endregion
             model.feed_data(train_data)
-            # #region agent log
-            _agent_debug_log(
-                hypothesis_id="B",
-                location="train.py:post_feed",
-                message="feed_data completed",
-                data={"iter": current_iter, "elapsed_s": round(time.perf_counter() - _t_feed, 3)},
-            )
-            _t_opt = time.perf_counter()
-            # #endregion
             model.optimize_parameters(current_iter)
-            # #region agent log
-            _agent_debug_log(
-                hypothesis_id="A",
-                location="train.py:post_optimize",
-                message="optimize_parameters completed",
-                data={"iter": current_iter, "elapsed_s": round(time.perf_counter() - _t_opt, 3)},
-            )
-            # #endregion
             iter_timer.record()
             if current_iter == 1:
                 # reset start time in msg_logger for more accurate eta_time
@@ -311,18 +233,6 @@ def train_pipeline(root_path):
     model.save(epoch=-1, current_iter=-1)  # -1 stands for the latest
     val_cfg = opt.get("val")
     run_final_val = val_cfg is not None and (current_iter % val_cfg["val_freq"] == 0)
-    # #region agent log
-    _agent_debug_log(
-        hypothesis_id="C",
-        location="train.py:final_validation",
-        message="final validation decision",
-        data={
-            "current_iter": current_iter,
-            "val_freq": None if val_cfg is None else val_cfg.get("val_freq"),
-            "run_final_val": run_final_val,
-        },
-    )
-    # #endregion
     if run_final_val:
         for val_loader in val_loaders:
             model.validation(val_loader, current_iter, tb_logger, val_cfg["save_img"])

@@ -1,42 +1,15 @@
 import argparse
-import json
 import os
 import random
 import sys
-import time
 from collections import OrderedDict
 from os import path as osp
-from pathlib import Path
 
 import torch
 import yaml
 
 from basicsr.utils import set_random_seed
 from basicsr.utils.dist_util import get_dist_info, init_dist, master_only
-
-DEBUG_LOG = Path(__file__).resolve().parents[2] / ".cursor" / "debug-c42c65.log"
-
-
-def _agent_log(hypothesis_id: str, location: str, message: str, data: dict) -> None:
-    # #region agent log
-    payload = {
-        "sessionId": "c42c65",
-        "runId": os.environ.get("CI_PIPELINE_ID", "local"),
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    line = json.dumps(payload, ensure_ascii=True)
-    print(f"[debug] {line}", flush=True)
-    try:
-        DEBUG_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with DEBUG_LOG.open("a", encoding="utf-8") as fh:
-            fh.write(line + "\n")
-    except OSError:
-        pass
-    # #endregion
 
 
 def _strip_local_rank_argv(argv: list[str]) -> tuple[list[str], int | None]:
@@ -158,28 +131,11 @@ def parse_options(root_path, is_train=True):
         "--force_yml", nargs="+", default=None, help="Force to update yml files. Examples: train:ema_decay=0.999"
     )
     argv_tail, local_rank_argv = _strip_local_rank_argv(sys.argv[1:])
-    _agent_log(
-        "A",
-        "options.py:parse_options",
-        "argv before parse_args",
-        {
-            "raw_argv": sys.argv[1:],
-            "filtered_argv": argv_tail,
-            "local_rank_argv": local_rank_argv,
-            "env_local_rank": os.environ.get("LOCAL_RANK"),
-        },
-    )
     args = parser.parse_args(argv_tail)
     if local_rank_argv is not None:
         args.local_rank = local_rank_argv
     elif os.environ.get("LOCAL_RANK") is not None:
         args.local_rank = int(os.environ["LOCAL_RANK"])
-    _agent_log(
-        "B",
-        "options.py:parse_options",
-        "resolved local rank",
-        {"local_rank": args.local_rank, "launcher": args.launcher},
-    )
 
     # parse yml to dict
     opt = yaml_load(args.opt)

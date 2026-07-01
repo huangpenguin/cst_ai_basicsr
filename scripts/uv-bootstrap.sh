@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared project venv bootstrap for devcontainer postCreate and GitLab GPU jobs.
+# Shared project venv bootstrap for devcontainer postCreate, docker-dev.sh, and GitLab GPU jobs.
 # Keeps legacy requirements.txt, semi-migrated pyproject.toml, and uv.lock paths aligned.
 set -euo pipefail
 

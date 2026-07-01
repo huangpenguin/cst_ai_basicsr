@@ -5,9 +5,13 @@
 # 【跑在哪】GPU 服务器上自建的 self-hosted Docker executor Runner。
 #
 # 【Runner volumes — 持久数据，job 结束后仍在宿主机】
-#   /cache              <->  host /cache
-#   /mnt/home:/home:rw  <->  host /mnt/home
+#   /mnt/home:/home:rw  <->  host /mnt/home   （训练产出主路径，SSH 可直接读写）
 #   /mnt/data:/data:ro  <->  host /mnt/data（原始 TIFF，只读）
+#   /cache              <->  host /cache     （备选快盘；本项目默认不用）
+#
+# 宿主机固定落盘（与 CST_STORAGE_USER 对齐，默认 huang）：
+#   /mnt/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/{PipelineID}/
+#   /mnt/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/latest  -> 最近一次训练
 #
 # 训练输出（log、checkpoint、TensorBoard）写在 storage_root/ci_outputs/{PipelineID}/：
 #   experiments/   — train_*.log、models/、training_states/
@@ -24,11 +28,13 @@ variables:
   UV_LINK_MODE: copy
   DATA_DIR: "/data"
   PROJECT_NAME: "cst_ai"
+  # GPU 宿主机 Unix 账号（与 /mnt/home/<user> 一致；GitLab 登录名常不同，勿用 GITLAB_USER_LOGIN）
+  CST_STORAGE_USER: "huang"
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   TRAIN_COMMAND: "python train.py"
-  TRAIN_DATASET_DIR: "/home/${GITLAB_USER_LOGIN}/cst_ai/datasets/swinir_cylinderblock_paired"
+  TRAIN_DATASET_DIR: "/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired"
   TRAIN_RAW_DATA_ROOT: "/data/${PROJECT_NAME}/data_0607"
-  TRAIN_EXPERIMENTS_ROOT: "/home/${GITLAB_USER_LOGIN}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/experiments"
+  TRAIN_EXPERIMENTS_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/experiments"
   TRAIN_NPROC_PER_NODE: "4"
   TRAIN_MASTER_PORT: "4331"
   # PyTorch distributed / NCCL collective timeout (minutes). Override via job variables if needed.
@@ -50,13 +56,6 @@ variables:
     datasets:val:dataroot_gt=${TRAIN_DATASET_DIR}/val/GT
     datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json
     path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}
-  # Short SwinIR train repro job (see scripts/ci_swinir_cylinderblock_debug.py)
-  CI_DEBUG_COMMAND: "python scripts/ci_swinir_cylinderblock_debug.py"
-  CI_DEBUG_MAX_SLICES: "5"
-  CI_DEBUG_TOTAL_ITER: "30"
-  CI_DEBUG_NPROC: "1"
-  CI_DEBUG_BATCH_SIZE: "1"
-
 .gpu_docker_base:
   stage: deploy
   image: "$MLOPS_GPU_IMAGE"
@@ -84,7 +83,9 @@ variables:
       echo "GPU image: ${MLOPS_GPU_IMAGE}"
       echo "DATA_DIR: ${DATA_DIR}"
       echo "PROJECT_NAME: ${PROJECT_NAME}"
+      echo "CST_STORAGE_USER: ${CST_STORAGE_USER}"
       echo "GITLAB_USER_LOGIN: ${GITLAB_USER_LOGIN:-unknown}"
+      echo "Host storage (after job): /mnt/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/"
 
       if ! command -v nvidia-smi >/dev/null 2>&1; then
         echo "ERROR: nvidia-smi not found inside the job container." >&2
@@ -146,7 +147,8 @@ variables:
       if [[ -f "${CI_PROJECT_DIR}/.ci_run_root" ]]; then
         CI_RUN_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_run_root")"
         echo "Persistent CI_RUN_ROOT=${CI_RUN_ROOT}"
-        echo "  Host path (if /cache bind-mounted): ${CI_RUN_ROOT}"
+        echo "  GPU host path: /mnt/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/${CI_PIPELINE_ID:-unknown}"
+        echo "  Latest symlink: /mnt/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/latest"
       fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
         mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn"
@@ -165,27 +167,6 @@ variables:
     paths:
       - results/cylinderblock_swinir_graydn/
 
-.gpu_debug_artifacts:
-  after_script:
-    - |
-      set -euo pipefail
-      if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
-        TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
-      fi
-      if [[ -f "${CI_PROJECT_DIR}/.ci_run_root" ]]; then
-        echo "Persistent CI_RUN_ROOT=$(cat "${CI_PROJECT_DIR}/.ci_run_root")"
-      fi
-      if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
-        mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_debug"
-        cp -a "${TRAIN_EXPERIMENTS_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_debug/" || true
-        echo "Staged debug artifacts from ${TRAIN_EXPERIMENTS_ROOT}"
-      fi
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - results/cylinderblock_swinir_debug/
-
 gpu_smoke:
   extends: .gpu_docker_base
   timeout: 30m
@@ -195,25 +176,6 @@ gpu_smoke:
       allow_failure: true
   script:
     - bash -lc "${SMOKE_COMMAND}"
-
-# Short SwinIR train repro: tiny dataset, 1 GPU, ~minutes.
-# Set CI_DEBUG_CUDA_LAUNCH_BLOCKING=1 only when debugging CUDA errors (very slow with DataParallel).
-train_cylinderblock_swinir_debug:
-  extends:
-    - .gpu_docker_base
-    - .gpu_debug_artifacts
-  timeout: 1h
-  variables:
-    CUDA_VISIBLE_DEVICES: "0"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: true
-  script:
-    - |
-      set -euo pipefail
-      python -c "import inspect; from basicsr.utils import options as o; assert hasattr(o, '_strip_local_rank_argv'); print('options_module', inspect.getfile(o)); print('local_rank_fix_ok')"
-      bash -lc "${CI_DEBUG_COMMAND}"
 
 run_training:
   extends: .gpu_docker_base
@@ -240,7 +202,7 @@ train_cylinderblock_swinir_graydn:
     - |
       set -euo pipefail
 
-      eval "$(python scripts/ci_storage.py prepare --write-markers --emit-shell)"
+      eval "$(python scripts/ci_storage.py prepare --write-markers --latest-symlink --emit-shell)"
       echo "TRAIN_RAW_DATA_ROOT=${TRAIN_RAW_DATA_ROOT}"
       echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
       echo "TRAIN_DIST_TIMEOUT_MIN=${TRAIN_DIST_TIMEOUT_MIN}"
@@ -263,25 +225,17 @@ train_cylinderblock_swinir_graydn:
       done
 
       if [[ "${dataset_ready}" != "true" ]]; then
-        if [[ ! -d "${TRAIN_RAW_DATA_ROOT}" ]]; then
-          echo "ERROR: paired dataset missing and raw data root not found: ${TRAIN_RAW_DATA_ROOT}" >&2
-          echo "Mount /mnt/data on the GPU runner and ensure ${TRAIN_RAW_DATA_ROOT} exists in the job container." >&2
-          exit 1
-        fi
-
-        echo "Paired dataset not found under ${TRAIN_DATASET_DIR}; running preprocess..."
-        python scripts/preprocess_cylinderblock_swinir.py \
-          --data-root "${TRAIN_RAW_DATA_ROOT}" \
-          --output-root "${TRAIN_DATASET_DIR}" \
-          --overwrite
+        echo "ERROR: paired dataset not found under ${TRAIN_DATASET_DIR}" >&2
+        echo "Preprocess is intentionally NOT run inside CI. On the GPU host, run:" >&2
+        echo "  export DATA_DIR=/mnt/data" >&2
+        echo "  uv run python scripts/preprocess_cylinderblock_swinir.py \\" >&2
+        echo "    --data-root /mnt/data/cst_ai/data_0607 \\" >&2
+        echo "    --output-root /mnt/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired \\" >&2
+        echo "    --overwrite" >&2
+        echo "Geometry: 260520 LQ rot 193° CW, 260527 LQ rot 91° CW, nearest-edge + resize to 1530." >&2
+        echo "Verify train/LQ, train/GT, val/LQ, val/GT, normalization.json (geometry.lq_by_batch), then retry." >&2
+        exit 1
       fi
-
-      for path in "${required_paths[@]}"; do
-        if [[ ! -e "${path}" ]]; then
-          echo "ERROR: required dataset path still missing after preprocess: ${path}" >&2
-          exit 1
-        fi
-      done
 
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
 

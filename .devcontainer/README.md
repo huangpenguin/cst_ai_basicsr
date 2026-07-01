@@ -1,163 +1,88 @@
-# Dev Container Operator Runbook
+# Dev Container 工作流
 
-Code lives in **`/workspace`**. Datasets on the Docker host are bind-mounted to **`/data`**.
+IDE 用 **Dev Container** 进环境；底座由 [`docker-compose.yml`](../docker-compose.yml) 提供（与 `scripts/docker-dev.sh`、GitLab CI 同一 PyTorch 镜像族 + `uv-bootstrap`）。
 
-Application code reads **`DATA_DIR`** (fixed to `/data` inside the container) plus relative paths such as `data_0607/...`. Do not commit host-specific paths to Git.
+## 架构（三层，不是二选一）
 
-## Architecture
+| 层 | 位置 | 作用 |
+|----|------|------|
+| Docker 镜像 | `Dockerfile` → `pytorch:2.6.0-cuda12.4-devel` | OS、CUDA 用户态、uv |
+| Python venv | `/workspace/.venv`（宿主机即仓库内 `.venv`，**已 gitignore**） | 项目依赖，与 CI 一致 |
+| Dev Container | 本目录 `devcontainer.json` | 仅 IDE：解释器、扩展、UID 映射、`postCreateCommand` |
 
-| Layer | Committed to Git | Per-developer |
-|-------|------------------|---------------|
-| Project code | `/workspace` ← `${localWorkspaceFolder}` bind | Open the **repo folder** in IDE, not `$HOME` |
-| Container mount target | `/data` | — |
-| Container env | `DATA_DIR=/data` | — |
-| Host bind source | `${localEnv:DATA_MOUNT_SOURCE}` in devcontainer.json | Each dev exports before Rebuild |
-| Application code | Reads `DATA_DIR` + relative paths | Optional per-dataset overrides |
+**venv 仍在仓库根目录**，但不提交 Git；容器内路径为 `/workspace/.venv`。不要再用 `.venv-huang` 或宿主机全局 pip。
 
-## Mount strategy (do not mount `$HOME`)
-
-Committed `devcontainer.json` uses **only two bind mounts**:
-
-| Source (host) | Target (container) | Purpose |
-|---------------|-------------------|---------|
-| `${localWorkspaceFolder}` | `/workspace` | Project code + `.venv` (created by `uv-bootstrap.sh`) |
-| `${localEnv:DATA_MOUNT_SOURCE}` | `/data` | Datasets only |
-
-**Never** bind the entire host `$HOME` into the container (for example `source=${localEnv:HOME},target=/home/vscode`). That drags in `.cursor-server`, `.cache`, `.gvfs`, SSH agent sockets, and other host state. After a server restart or reconnect, Cursor server install and extension caches often conflict or break.
-
-| Anti-pattern | Why it fails |
-|--------------|--------------|
-| Mount `$HOME` → `/home/vscode` | `.cursor-server` / IDE cache conflicts across rebuilds |
-| Mount `$HOME` → `/workspace` | Opens home as workspace; same conflict, plus permission noise |
-| Symlink `.venv` to a path under host `$HOME` outside the repo | Bind mount + UID remap can corrupt the venv |
-
-**Correct patterns for persistence**
-
-- **Code**: bind only the git repo (`workspaceMount` — default).
-- **Data**: bind one dataset directory via `DATA_MOUNT_SOURCE` → `/data`.
-- **Caches (optional)**: use a **named Docker volume** for a single cache dir, not all of `$HOME`. Example in [`devcontainer.local.json.example`](devcontainer.local.json.example) Option F.
-
-`remote.containers.copyGitConfig` is set to `false` so Cursor does not try to copy host gitconfig via a broken home-path resolution (see lessons-learned).
-
-## A. One-time host prerequisites (new GPU machine)
-
-Run on the **Docker host** (e.g. main_gpu):
+## 一次性准备（宿主机）
 
 ```bash
-nvidia-smi
-docker info
-docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
-```
-
-If `docker info` fails with permission denied, add your user to the `docker` group and start a new login session.
-
-See also [CUDA driver matrix](../docs/docker/cuda-driver-matrix.zh-CN.md).
-
-## B. First-time project setup (after inject)
-
-```bash
-init-ai add mlops-gpu --apply
-```
-
-Ensure `python-quality` pack is applied so `.gitignore` includes `.devcontainer/devcontainer.local.json`.
-
-On **Rebuild Container**, `postCreateCommand` runs `scripts/uv-bootstrap.sh` — the same script GitLab GPU jobs use. This creates `/workspace/.venv` and installs runtime + dev dependencies.
-
-| Project state | What bootstrap does |
-|---------------|---------------------|
-| `pyproject.toml` + `uv.lock` | `uv sync --frozen --dev` |
-| Semi-migrated (`dependencies = []` + `requirements.txt`) | Install from `requirements.txt` (cu124 index for torch) + dev tools |
-| `requirements.txt` only | `uv venv` + requirements + optional `uv pip install -e .` |
-| `pyproject.toml` only | `uv sync --dev` |
-
-**Do not** run only `uv sync --dev` on legacy projects and assume torch/opencv/etc. are installed.
-
-VS Code interpreter is set to `/workspace/.venv/bin/python` (matches `uv run`).
-
-The Docker base image still contains conda PyTorch for reference, but **project commands use `.venv`**, not `/opt/conda`.
-
-## C. Before every Rebuild Container
-
-**Required when you need real datasets** (default template behavior):
-
-```bash
-export DATA_MOUNT_SOURCE=/path/on/docker-host
-test -n "$DATA_MOUNT_SOURCE" && ls "$DATA_MOUNT_SOURCE" >/dev/null && test -d "$DATA_MOUNT_SOURCE"
-```
-
-Notes:
-
-- `DATA_MOUNT_SOURCE` must be a **local path on the Docker host**, not an NFS export string (`192.168.x.x:/mnt/...`).
-- For **autofs**, `ls` triggers the mount before Docker bind.
-- The IDE must see this variable: export in the same shell before launching Cursor, or add to `~/.zshrc` / `~/.bashrc`.
-- Example snippet: [`data-mount.env.example`](data-mount.env.example) (copy to shell profile; not auto-loaded).
-
-Then **Rebuild Container** (not Reload Window). No Dockerfile change is required for data mounts.
-
-### GPU smoke only (no real data)
-
-```bash
-export DATA_MOUNT_SOURCE="${HOME}/.local/share/mlops-empty-data"
-mkdir -p "$DATA_MOUNT_SOURCE"
-```
-
-Rebuild passes validation; `/data` is empty and `train.py` smoke still runs.
-
-### Rebuild vs Reload
-
-| Change | Action |
-|--------|--------|
-| `DATA_MOUNT_SOURCE` or mounts | **Rebuild Container** |
-| Python / config in repo | No Rebuild |
-| Dockerfile base image / apt packages | **Rebuild Container** |
-
-## D. After Rebuild — verification
-
-Inside the container:
-
-```bash
-echo "DATA_DIR=$DATA_DIR"
-nvidia-smi
-ls "$DATA_DIR"
-uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
-uv run python train.py
-```
-
-Expected: `DATA_DIR=/data`; GPU visible; torch in `.venv` is `2.6.x+cu124` with CUDA available on V100 (`sm_70`).
-
-## E. Team members with different host paths
-
-Each developer sets their own path before Rebuild:
-
-```bash
-export DATA_MOUNT_SOURCE=/home/alice/data
+# 写入 ~/.zshrc 或每次开 IDE 前 export
 export DATA_MOUNT_SOURCE=/mnt/data
-export DATA_MOUNT_SOURCE=/D/data
+export HOME_MOUNT_SOURCE=/mnt/home   # 有 NFS 时
 ```
 
-Code uses only `$DATA_DIR/relative/path` — no host paths in Git.
+示例见 [`data-mount.env.example`](data-mount.env.example)。
 
-## F. If you forget to export
+## 日常开发
 
-1. **Persistent shell profile** — add `export DATA_MOUNT_SOURCE=...` to `~/.zshrc`.
-2. **Gitignored override** — copy [`devcontainer.local.json.example`](devcontainer.local.json.example) to `devcontainer.local.json` and set a hardcoded mount (Option B–E).
+1. Cursor / VS Code：**Rebuild Container**（会跑 `postCreateCommand` → `uv-bootstrap.sh`）
+2. 终端里直接用：`uv run python ...`（已在容器内，解释器指向 `.venv`）
+3. Agent 对话：**在 Dev Container 窗口里** 提问、改代码、跑命令（推荐）
 
-Do **not** commit personal paths into `devcontainer.json`.
+无 IDE 时等价入口：
 
-## G. Troubleshooting
+```bash
+export DATA_MOUNT_SOURCE=/mnt/data
+bash scripts/docker-dev.sh shell    # 或 run uv run python ...
+```
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `ERROR: export DATA_MOUNT_SOURCE before Rebuild` | Host env unset | Export path, Rebuild |
-| `bind source path does not exist` | Wrong host path or autofs not triggered | `ls /mnt/data`; fix `DATA_MOUNT_SOURCE` |
-| `permission denied` connecting to Docker | User not in `docker` group | `docker info`; fix group membership |
-| `/data` empty inside container | Mount skipped or wrong source | Rebuild after export; verify host path |
-| Data outside repo invisible | Only `/workspace` mounted by default | Use `/data` bind mount, not symlinks to `../input` |
-| Agent reinstalls huge torch from PyPI | Only `uv sync --dev` on semi-migrated project | Rebuild Container (runs `uv-bootstrap.sh`); migrate with `pyproject-uv-pytorch.snippet.toml` |
-| `torch.cuda.is_available()` false on V100 | Wrong torch build (e.g. 2.12 from PyPI) | Ensure `uv-bootstrap.sh` ran; pin cu124 via snippet or `MLOPS_PYTORCH_INDEX` |
+## 标准任务步骤
 
-More: [Data mount env isolation](../docs/use-cases/data-mount-env-isolation.md), [GPU Runner workflow](../docs/use-cases/gpu-runner.zh-CN.md).
+### 预处理（宿主机数据 → NFS 数据集）
 
-## H. CI parity
+在 **容器内** 或 `docker-dev.sh run`：
 
-GitLab CI keeps the same in-container contract: `DATA_DIR=/data` in training code. With Docker executor, mount the GPU host path in the Runner `config.toml` volumes, for example `/mnt/data:/data:ro`.
+```bash
+uv run python scripts/preprocess_cylinderblock_swinir.py \
+  --data-root /data/cst_ai/data_0607 \
+  --output-root /home/${USER}/cst_ai/datasets/swinir_cylinderblock_paired \
+  --overwrite
+```
+
+### 预览 / 预训练对比
+
+```bash
+uv run python scripts/preview_cylinderblock_preprocess.py --slice 250
+uv run python scripts/download_swinir_release.py --only 004_grayDN
+uv run python scripts/compare_swinir_cylinder_pretrained_dn.py --slice 250
+```
+
+### 正式微调训练 → GitLab CI
+
+1. 确认 NFS 上已有 `train/LQ`、`train/GT`、`val/...`、`normalization.json`
+2. push 到 `main`，GitLab 手动 play **`train_cylinderblock_swinir_graydn`**
+3. 产出：`/mnt/home/${USER}/cst_ai/ci_outputs/{PipelineID}/`
+
+本地短调试可用 `docker-dev.sh run` + 单卡 `basicsr/train.py`，长跑仍建议 CI。
+
+## 权限
+
+- Dev Container：`remoteUser=vscode` + `updateRemoteUserUID=true` → 容器 uid 对齐宿主机，`.venv` 不会变成 root 文件
+- `docker-dev.sh`：`docker compose run --user $(id -u):$(id -g)`
+
+## 还能在「普通 shell」里用 Agent 吗？
+
+可以，但 **Python/GPU 任务应通过容器**：
+
+- ✅ **最佳**：Cursor **Dev Container** 窗口里和 Agent 对话（左下角显示 `Dev Container`）
+- ✅ 宿主机 Agent 执行：`bash scripts/docker-dev.sh run uv run python ...`
+- ❌ 避免：宿主机 `conda base` 里直接 `uv run`（易漂移；若 shell 里还有 `export UV_PROJECT_ENVIRONMENT=.venv-huang` 请 **unset**）
+
+## 重建 venv
+
+```bash
+# 在容器内或 docker-dev.sh 中（root 删旧 venv 仅当曾被 root 占用时）：
+docker run --rm --user root -v "$PWD:/workspace" basicsr-mlops-gpu:2.6.0-cu124 rm -rf /workspace/.venv /workspace/.venv-huang
+bash scripts/docker-dev.sh bootstrap
+unset UV_PROJECT_ENVIRONMENT
+uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+```
