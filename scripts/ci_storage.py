@@ -58,15 +58,28 @@ def resolve_storage_root(
     login: str | None = None,
     project_dir: Path | None = None,
 ) -> Path:
-    """Pick first writable persistent root: /home, /cache, then repo fallback."""
+    """Pick first writable persistent root.
+
+      In GitLab CI (runner volume ``/mnt/home:/home``), NFS data is only visible
+    under ``/home/<user>/...``. Do not prefer ``/mnt/home/...`` there: mkdir can
+      create an empty local tree in the container overlay with no datasets.
+    """
     user = resolve_storage_user(login=login)
     repo = project_dir or Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).resolve().parents[1]))
-    candidates = [
-        Path(f"/mnt/home/{user}/cst_ai"),  # GPU host SSH (NFS)
-        Path(f"/home/{user}/cst_ai"),  # CI / docker-dev container (bind-mounted NFS)
-        Path(f"/cache/{user}/cst_ai"),
-        repo / ".ci_storage" / user / "cst_ai",
-    ]
+    fallback = repo / ".ci_storage" / user / "cst_ai"
+    if os.environ.get("CI"):
+        candidates = [
+            Path(f"/home/{user}/cst_ai"),  # runner bind mount -> host /mnt/home
+            Path(f"/cache/{user}/cst_ai"),
+            fallback,
+        ]
+    else:
+        candidates = [
+            Path(f"/mnt/home/{user}/cst_ai"),  # GPU host SSH (NFS)
+            Path(f"/home/{user}/cst_ai"),  # docker-dev container (HOME_MOUNT_SOURCE)
+            Path(f"/cache/{user}/cst_ai"),
+            fallback,
+        ]
     for candidate in candidates:
         try:
             (candidate / "datasets").mkdir(parents=True, exist_ok=True)
