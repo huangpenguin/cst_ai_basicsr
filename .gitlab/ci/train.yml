@@ -40,7 +40,7 @@ variables:
   # PyTorch distributed / NCCL collective timeout (minutes). Override via job variables if needed.
   TRAIN_DIST_TIMEOUT_MIN: "120"
   TRAIN_CYLINDERBLOCK_COMMAND: >-
-    python scripts/download_swinir_release.py --only 004_grayDN &&
+    python scripts/download_swinir_release.py --only noise25 &&
     python -m torch.distributed.run
     --nproc_per_node=${TRAIN_NPROC_PER_NODE}
     --master_port=${TRAIN_MASTER_PORT}
@@ -258,7 +258,7 @@ train_cylinderblock_swinir_graydn:
       print('dist_timeout_fix_ok')
       "
 
-      python scripts/download_swinir_release.py --only 004_grayDN
+      python scripts/download_swinir_release.py --only noise25
       python -m torch.distributed.run \
         --nproc_per_node="${TRAIN_NPROC_PER_NODE}" \
         --master_port="${TRAIN_MASTER_PORT}" \

@@ -1,5 +1,5 @@
 # general settings
-name: train_SwinIR_grayDN_cylinderblock_noise15_ft_P128W8
+name: train_SwinIR_grayDN_cylinderblock_noise25_ft_P128W8
 model_type: SwinIRModel
 scale: 1
 num_gpu: auto
@@ -54,7 +54,7 @@ network_g:
 
 # path
 path:
-  pretrain_network_g: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise15.pth
+  pretrain_network_g: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth
   param_key_g: params_ema
   strict_load_g: true
   resume_state: ~
