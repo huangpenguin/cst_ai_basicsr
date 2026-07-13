@@ -19,6 +19,16 @@ ensure_uv_home() {
   export PATH="${HOME}/.local/bin:${PATH}"
 }
 
+install_uv_via_pip() {
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 -m pip --version >/dev/null 2>&1 || return 1
+
+  echo "Installing uv via python3 -m pip install --user..."
+  python3 -m pip install --user --upgrade uv
+  export PATH="${HOME}/.local/bin:${PATH}"
+  command -v uv >/dev/null 2>&1
+}
+
 download_uv_installer() {
   local dest="$1"
   if command -v curl >/dev/null 2>&1; then
@@ -29,7 +39,10 @@ download_uv_installer() {
     python3 - <<PY
 import urllib.request
 
-urllib.request.urlretrieve("https://astral.sh/uv/install.sh", "${dest}")
+url = "https://astral.sh/uv/install.sh"
+req = urllib.request.Request(url, headers={"User-Agent": "curl/8.0 (BasicSR-CI)"})
+with urllib.request.urlopen(req) as resp, open("${dest}", "wb") as out:
+    out.write(resp.read())
 PY
   elif [[ "$(id -u)" == "0" ]]; then
     apt-get update
@@ -37,9 +50,18 @@ PY
     rm -rf /var/lib/apt/lists/*
     curl -LsSf https://astral.sh/uv/install.sh -o "${dest}"
   else
-    echo "ERROR: cannot install uv without curl/wget/python3 (container runs as non-root)." >&2
-    exit 1
+    return 1
   fi
+}
+
+install_uv_via_installer_script() {
+  local installer
+  installer="$(mktemp /tmp/uv-install.XXXXXX.sh)"
+  download_uv_installer "${installer}"
+  sh "${installer}"
+  rm -f "${installer}"
+  export PATH="${HOME}/.local/bin:${PATH}"
+  command -v uv >/dev/null 2>&1
 }
 
 install_uv_if_missing() {
@@ -49,17 +71,16 @@ install_uv_if_missing() {
 
   ensure_uv_home
   echo "Installing uv to ${HOME}/.local/bin (uid $(id -u))..."
-  local installer
-  installer="$(mktemp /tmp/uv-install.XXXXXX.sh)"
-  download_uv_installer "${installer}"
-  sh "${installer}"
-  rm -f "${installer}"
-  export PATH="${HOME}/.local/bin:${PATH}"
 
-  if ! command -v uv >/dev/null 2>&1; then
-    echo "ERROR: uv install finished but uv is not on PATH." >&2
-    exit 1
+  if install_uv_via_pip; then
+    return 0
   fi
+  if install_uv_via_installer_script; then
+    return 0
+  fi
+
+  echo "ERROR: failed to install uv (tried pip, install.sh)." >&2
+  exit 1
 }
 
 install_uv_if_missing
