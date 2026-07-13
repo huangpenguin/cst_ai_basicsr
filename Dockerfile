@@ -1,5 +1,7 @@
 FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
 
+# Shared by Dev Container (docker-compose) and GitLab CI (MLOPS_PROJECT_IMAGE).
+# Python deps are NOT baked here — postCreate / CI run scripts/uv-bootstrap.sh → .venv
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \

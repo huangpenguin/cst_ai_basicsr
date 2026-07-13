@@ -23,6 +23,14 @@ Env vars: `DATA_DIR`, `PROJECT_NAME`, `WORK_DIR`, `CST_STORAGE_USER`, optional `
 CI training outputs (container `/home/<CST_STORAGE_USER>/cst_ai/`, host `/mnt/home/<CST_STORAGE_USER>/cst_ai/`).
 Default `CST_STORAGE_USER=huang` in `.gitlab/ci/train.yml` (not `GITLAB_USER_LOGIN`).
 
+## Unified GPU image (2026-07)
+
+Dev Container and GitLab CI use the **same** image tag `basicsr-mlops-gpu:2.6.0-cu124` from `Dockerfile` (base `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel`).
+
+- Image layer: OS tools + `uv` only (granularity 1).
+- Python deps: `scripts/uv-bootstrap.sh` → `.venv` (same as devcontainer `postCreateCommand`).
+- gpu01 one-time: `bash scripts/build_mlops_image.sh`; CI `pull_policy: if-not-present`.
+
 Devcontainer / docker-dev host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOUNT_SOURCE=/mnt/home`. Dev Container + compose: see `.devcontainer/README.md`.
 
 ## Cylinderblock preprocess geometry (2026-06)

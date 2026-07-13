@@ -1,14 +1,14 @@
 # Dev Container 工作流
 
-IDE 用 **Dev Container** 进环境；底座由 [`docker-compose.yml`](../docker-compose.yml) 提供（与 `scripts/docker-dev.sh`、GitLab CI 同一 PyTorch 镜像族 + `uv-bootstrap`）。
+IDE 用 **Dev Container** 进环境；底座由 [`docker-compose.yml`](../docker-compose.yml) 构建（**与 GitLab CI 同一镜像** `basicsr-mlops-gpu:2.6.0-cu124` + `uv-bootstrap`）。
 
-## 架构（三层，不是二选一）
+## 架构（三层）
 
 | 层 | 位置 | 作用 |
 |----|------|------|
-| Docker 镜像 | `Dockerfile` → `pytorch:2.6.0-cuda12.4-devel` | OS、CUDA 用户态、uv |
-| Python venv | `/workspace/.venv`（宿主机即仓库内 `.venv`，**已 gitignore**） | 项目依赖，与 CI 一致 |
-| Dev Container | 本目录 `devcontainer.json` | 仅 IDE：解释器、扩展、UID 映射、`postCreateCommand` |
+| Docker 镜像 | `Dockerfile` → `basicsr-mlops-gpu:2.6.0-cu124` | 官方 PyTorch 底座 + uv/curl/git（**不含**项目 Python 包） |
+| Python venv | `/workspace/.venv`（宿主机即仓库内 `.venv`，**已 gitignore**） | `uv-bootstrap.sh` 安装依赖，CI 与本地相同 |
+| Dev Container | 本目录 `devcontainer.json` | IDE：解释器、扩展、UID 映射、`postCreateCommand` |
 
 **venv 仍在仓库根目录**，但不提交 Git；容器内路径为 `/workspace/.venv`。不要再用 `.venv-huang` 或宿主机全局 pip。
 

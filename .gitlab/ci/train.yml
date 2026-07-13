@@ -2,6 +2,9 @@
 # train.yml — Docker executor GPU 训练调度
 # =============================================================================
 #
+# 【镜像】与 Dev Container 相同：Dockerfile → basicsr-mlops-gpu:2.6.0-cu124（FROM 官方 pytorch）。
+# gpu01 首次：bash scripts/build_mlops_image.sh；依赖仍由 uv-bootstrap.sh 装入 .venv（与 postCreate 相同）。
+#
 # 【跑在哪】gpu01 上带 tag ``storage_huang`` 的项目 runner（user=huang uid，见 setup_gpu_data_layout.sh）。
 #
 # 【Runner volumes — 持久数据，job 结束后仍在宿主机】
@@ -23,7 +26,8 @@ variables:
   CST_STORAGE_USER: "huang"
   # Runner tag for NFS-writable jobs (second [[runners]] on gpu01 with user = huang uid/gid)
   RUNNER_STORAGE_TAG: "storage_huang"
-  MLOPS_GPU_IMAGE: "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
+  # Same tag as docker-compose.yml / Dev Container (built from Dockerfile)
+  MLOPS_PROJECT_IMAGE: "basicsr-mlops-gpu:2.6.0-cu124"
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   TRAIN_COMMAND: "python train.py"
   TRAIN_DATASET_DIR: "/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired"
@@ -56,7 +60,9 @@ variables:
     path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}
 .gpu_docker_base:
   stage: train
-  image: "$MLOPS_GPU_IMAGE"
+  image:
+    name: "$MLOPS_PROJECT_IMAGE"
+    pull_policy: if-not-present
   tags:
     - linux
     - docker
@@ -107,7 +113,7 @@ variables:
 
       echo "GitLab CI cache note: 'Cache file does not exist' on first job / new runner is normal."
       echo "  GitLab cache: reuses .venv/ between jobs (unrelated to host /cache volume)."
-      echo "GPU image: ${MLOPS_GPU_IMAGE}"
+      echo "GPU image: ${MLOPS_PROJECT_IMAGE}"
       echo "DATA_DIR: ${DATA_DIR}"
       echo "PROJECT_NAME: ${PROJECT_NAME}"
       echo "CST_STORAGE_USER: ${CST_STORAGE_USER}"
@@ -122,7 +128,6 @@ variables:
       nvidia-smi
 
       bash scripts/ensure_uv.sh
-      export PATH="${HOME}/.local/bin:${PATH}"
 
       if [[ ! -f scripts/uv-bootstrap.sh ]]; then
         echo "ERROR: scripts/uv-bootstrap.sh not found. Re-run init-ai add mlops-gpu --update --apply." >&2

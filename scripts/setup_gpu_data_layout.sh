@@ -32,7 +32,11 @@ cat <<EOF
     --url https://gitlab.com \\
     --token glrt-<paste-from-gitlab> \\
     --executor docker \\
-    --docker-image pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
+    --docker-image basicsr-mlops-gpu:2.6.0-cu124
+
+  # Build the same image once on gpu01 (same as Dev Container):
+  #   cd /path/to/basicsr && bash scripts/build_mlops_image.sh
+  # In [runners.docker] for this runner, prefer: pull_policy = ["if-not-present"]
 
   # Then edit /etc/gitlab-runner/config.toml — find the NEW [[runners]] block by name/token:
   #   name = "gpu01-storage-huang-runner"   (or your registration name)
@@ -63,7 +67,10 @@ cat <<'EOF'
 EOF
 
 echo ""
-echo "=== Per-repo CI variables (optional; defaults in .gitlab/ci/train.yml) ==="
-echo "  MLOPS_GPU_IMAGE = pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel  (job 内 apt + uv，与之前相同)"
+echo "=== Project GPU image (CI + Dev Container) ==="
+echo "  bash scripts/build_mlops_image.sh   # on gpu01, once after clone/pull"
+echo "  MLOPS_PROJECT_IMAGE = basicsr-mlops-gpu:2.6.0-cu124"
+echo ""
+echo "=== Per-repo CI variables (optional) ==="
 echo "  CST_STORAGE_USER = huang"
 echo "  WANDB_API_KEY = <masked>  (optional)"
