@@ -19,8 +19,7 @@ LOGDIR="${1:-}"
 if [[ -z "${LOGDIR}" ]]; then
   for candidate in \
     "/mnt/home/${LOGIN}/cst_ai/ci_outputs" \
-    "/home/${LOGIN}/cst_ai/ci_outputs" \
-    "/cache/${LOGIN}/cst_ai/ci_outputs"; do
+    "/home/${LOGIN}/cst_ai/ci_outputs"; do
     if [[ -d "${candidate}" ]]; then
       LOGDIR="${candidate}"
       break

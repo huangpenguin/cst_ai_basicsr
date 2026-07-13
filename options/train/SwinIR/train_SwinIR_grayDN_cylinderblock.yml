@@ -107,6 +107,7 @@ logger:
   use_tb_logger: true
   wandb:
     project: ~
+    entity: ~
     resume_id: ~
 
 # dist training settings

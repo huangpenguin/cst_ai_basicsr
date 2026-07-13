@@ -2,12 +2,12 @@
 """Resolve persistent storage paths for GitLab GPU training jobs.
 
 Runner bind mounts (see config.toml volumes):
-  /cache              -> host /cache
-  /home               -> host /mnt/home
-  /data               -> host /mnt/data (read-only)
+  /home               -> host /mnt/home   (NFS — datasets + training outputs)
+  /data               -> host /mnt/data   (read-only raw TIFF)
+  /cache              -> host /cache      (runner volume; **do not** store project data)
 
-GitLab CI ``cache:`` in .gitlab-ci.yml (``.venv/``, ``.cache/uv/``) is separate:
-it speeds up dependency install on the same runner; it is NOT the /cache volume.
+GitLab CI ``cache:`` in .gitlab-ci.yml (``.venv/``, ``.cache/uv/``, pretrained weights)
+is unrelated to the ``/cache`` volume: it only speeds up dependency install between jobs.
 """
 
 from __future__ import annotations
@@ -53,43 +53,78 @@ def container_to_host_path(path: Path) -> Path:
     return path
 
 
+def _reject_cache_storage(path: Path, *, context: str) -> Path:
+    """Training datasets and outputs must not use the runner ``/cache`` volume."""
+    if path.parts[:2] == ("/", "cache"):
+        raise SystemExit(
+            f"ERROR: {context} resolved to {path}, but project data must not use runner /cache.\n"
+            "Use the NFS bind mount /home/<CST_STORAGE_USER>/cst_ai instead "
+            "(host /mnt/home/<CST_STORAGE_USER>/cst_ai).\n"
+            "GitLab cache: in .gitlab-ci.yml only caches .venv/ and uv wheels — that is separate."
+        )
+    return path
+
+
+def resolve_dataset_dir(
+    storage_root: Path,
+    dataset_subdir: str,
+    *,
+    login: str | None = None,
+) -> Path:
+    """Dataset path for CI jobs (always on NFS ``/home/<user>/cst_ai/datasets/``)."""
+    user = resolve_storage_user(login=login)
+    if os.environ.get("CI"):
+        return _reject_cache_storage(
+            Path(f"/home/{user}/cst_ai/datasets/{dataset_subdir}"),
+            context="TRAIN_DATASET_DIR",
+        )
+    return storage_root / "datasets" / dataset_subdir
+
+
 def resolve_storage_root(
     *,
     login: str | None = None,
     project_dir: Path | None = None,
 ) -> Path:
-    """Pick first writable persistent root.
-
-      In GitLab CI (runner volume ``/mnt/home:/home``), NFS data is only visible
-    under ``/home/<user>/...``. Do not prefer ``/mnt/home/...`` there: mkdir can
-      create an empty local tree in the container overlay with no datasets.
-    """
+    """Pick writable persistent root under NFS home — never runner ``/cache``."""
     user = resolve_storage_user(login=login)
     repo = project_dir or Path(os.environ.get("CI_PROJECT_DIR", Path(__file__).resolve().parents[1]))
     fallback = repo / ".ci_storage" / user / "cst_ai"
     if os.environ.get("CI"):
-        candidates = [
-            Path(f"/home/{user}/cst_ai"),  # runner bind mount -> host /mnt/home
-            Path(f"/cache/{user}/cst_ai"),
-            fallback,
-        ]
-    else:
-        candidates = [
-            Path(f"/mnt/home/{user}/cst_ai"),  # GPU host SSH (NFS)
-            Path(f"/home/{user}/cst_ai"),  # docker-dev container (HOME_MOUNT_SOURCE)
-            Path(f"/cache/{user}/cst_ai"),
-            fallback,
-        ]
+        home_root = Path(f"/home/{user}/cst_ai")
+        try:
+            (home_root / "ci_outputs").mkdir(parents=True, exist_ok=True)
+            if not os.access(home_root, os.W_OK):
+                raise PermissionError(f"not writable: {home_root}")
+        except OSError as exc:
+            raise SystemExit(
+                "ERROR: CI training outputs must use NFS "
+                f"/home/{user}/cst_ai (host /mnt/home/{user}/cst_ai), not runner /cache.\n"
+                "Check runner config.toml volumes include: "
+                '"/mnt/home:/home:rw"\n'
+                f"And ensure /mnt/home/{user}/cst_ai is writable on the GPU host.\n"
+                f"Details: {exc}"
+            ) from exc
+        return _reject_cache_storage(home_root, context="CI storage_root")
+    candidates = [
+        Path(f"/mnt/home/{user}/cst_ai"),  # GPU host SSH (NFS)
+        Path(f"/home/{user}/cst_ai"),  # docker-dev container (HOME_MOUNT_SOURCE)
+        fallback,
+    ]
+    selected: Path | None = None
     for candidate in candidates:
         try:
             (candidate / "datasets").mkdir(parents=True, exist_ok=True)
             (candidate / "ci_outputs").mkdir(parents=True, exist_ok=True)
             if os.access(candidate, os.W_OK):
-                return candidate
+                selected = candidate
+                break
         except OSError:
             continue
-    tried = ", ".join(str(p) for p in candidates)
-    raise SystemExit(f"ERROR: no writable storage root. Tried: {tried}")
+    if selected is None:
+        tried = ", ".join(str(p) for p in candidates)
+        raise SystemExit(f"ERROR: no writable storage root. Tried: {tried}")
+    return _reject_cache_storage(selected, context="storage_root")
 
 
 def prepare_run_outputs(
@@ -106,7 +141,7 @@ def prepare_run_outputs(
     tb_logger_root = run_root / "tb_logger"
     experiments_root.mkdir(parents=True, exist_ok=True)
     tb_logger_root.mkdir(parents=True, exist_ok=True)
-    dataset_dir = storage_root / "datasets" / dataset_subdir
+    dataset_dir = resolve_dataset_dir(storage_root, dataset_subdir)
     return CiRunPaths(
         storage_root=storage_root,
         run_root=run_root,
