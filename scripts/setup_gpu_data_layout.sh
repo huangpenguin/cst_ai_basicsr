@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time host setup for autofs NFS GPU dev + CI (main_gpu).
+# One-time host setup for autofs NFS GPU dev + CI (main_gpu / storage_huang).
 #
 # Layout:
 #   /mnt/data/<PROJECT_NAME>/     → container /data/<PROJECT_NAME>/     (raw, ro)
@@ -9,35 +9,57 @@ set -euo pipefail
 
 PROJECT_NAME="${PROJECT_NAME:-cst_ai}"
 USER_NAME="${USER_NAME:-$(id -un)}"
+STORAGE_UID="$(id -u "${USER_NAME}")"
+STORAGE_GID="$(id -g "${USER_NAME}")"
 
 echo "=== Personal project output dir ==="
-mkdir -p "/mnt/home/${USER_NAME}/${PROJECT_NAME}/"{outputs,ci_outputs}
+mkdir -p "/mnt/home/${USER_NAME}/${PROJECT_NAME}/"{outputs,ci_outputs,datasets}
 echo "  /mnt/home/${USER_NAME}/${PROJECT_NAME}/"
 
 echo ""
-echo "=== GitLab Runner config.toml (same for all users — no per-user paths) ==="
-STORAGE_UID="$(id -u "${USER_NAME}")"
-STORAGE_GID="$(id -g "${USER_NAME}")"
+echo "=== GitLab Web (project jil_atr/basicsr) ==="
+cat <<'EOF'
+  Settings → CI/CD → Runners → New project runner
+    Tags: linux, docker, main_gpu, storage_huang
+    Run untagged jobs: OFF
+  Copy glrt-... token for register on gpu01.
+EOF
+
+echo ""
+echo "=== gpu01: register second runner (do NOT change shared main_gpu runner) ==="
 cat <<EOF
+  sudo gitlab-runner register \\
+    --url https://gitlab.com \\
+    --token glrt-<paste-from-gitlab> \\
+    --executor docker \\
+    --docker-image pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
+
+  # Then edit /etc/gitlab-runner/config.toml for the NEW [[runners]] block only:
+  tags = ["linux", "docker", "main_gpu", "storage_huang"]
+  gpus = "all"
   volumes = [
     "/cache",
     "/mnt/data:/data:ro",
     "/mnt/home:/home:rw",
   ]
-  # Required when NFS exports use root_squash (default). CI job containers otherwise
-  # run as root and cannot write /home/<user>/cst_ai on the bind mount.
   user = "${STORAGE_UID}:${STORAGE_GID}"
+
+  sudo gitlab-runner verify && sudo gitlab-runner restart
+
+  # Write test (NFS root_squash):
+  docker run --rm --user ${STORAGE_UID}:${STORAGE_GID} -v /mnt/home:/home:rw alpine \\
+    touch /home/${USER_NAME}/${PROJECT_NAME}/ci_outputs/.runner_write_test
 EOF
-echo "  sudo gitlab-runner restart"
+
+echo ""
+echo "=== Shared runner (unchanged) ==="
+cat <<'EOF'
+  tags = ["linux", "docker", "main_gpu"]
+  # no user= — containers run as root; cannot write /home/<user>/cst_ai on NFS
+EOF
+
 echo ""
 echo "=== Per-repo CI variables (optional; defaults in .gitlab/ci/train.yml) ==="
-echo "  PROJECT_NAME = cst_ai"
-echo "  DATASET_DIR  = /data/cst_ai/..."
-echo "  OUTPUT_DIR   = /home/\$CST_STORAGE_USER/cst_ai/ci_outputs/\$CI_PIPELINE_ID/..."
-echo "  Host path    = /mnt/home/\$CST_STORAGE_USER/cst_ai/ci_outputs/latest"
-echo ""
-echo "=== Local dev (before Rebuild Container) ==="
-echo "  export DATA_MOUNT_SOURCE=/mnt/data"
-echo "  export HOME_MOUNT_SOURCE=/mnt/home"
-echo "  export WORK_DIR=/home/${USER_NAME}"
-echo "  export PROJECT_NAME=${PROJECT_NAME}"
+echo "  MLOPS_GPU_IMAGE = pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel  (job 内 apt + uv，与之前相同)"
+echo "  CST_STORAGE_USER = huang"
+echo "  WANDB_API_KEY = <masked>  (optional)"

@@ -1,64 +1,38 @@
 # GPU Runner Workflow
 
-GitLab 网页负责派发 job，真正执行发生在带 `linux,docker,gpu` tag 的 self-hosted GPU Docker executor Runner 上。Runner 会直接拉起 GPU job 容器，CI 脚本在这个容器内运行。
+GitLab 网页负责派发 job，真正执行发生在带 `linux`, `docker`, `main_gpu`, `storage_huang` tag 的 project runner 上（gpu01 上与公共 runner 并存）。Runner 拉起 GPU job 容器并以 **huang uid** 运行，以便在 NFS `root_squash` 下写入 `/home/huang/cst_ai`。
 
 要求：
 
-- Runner 注册到项目或 group
-- tag 与 `.gitlab/ci/train.yml` 一致：`linux`, `docker`, `gpu`
+- 项目专用 runner（gpu01 注册步骤见 `scripts/setup_gpu_data_layout.sh`）
+- tag 与 `.gitlab/ci/train.yml` 一致：`linux`, `docker`, `main_gpu`, `storage_huang`
 - executor 使用 `docker`
+- `[runners.docker] user = "1003:1003"`（或 `id -u huang` / `id -g huang`）
 - GPU 宿主机已安装 NVIDIA driver、Docker 和 NVIDIA Container Toolkit
 - GitLab Runner 的 `config.toml` 中设置 `[runners.docker] gpus = "all"`
-- 如果训练需要数据集，GPU 宿主机上要能访问对应目录，例如 `/mnt/data` 或 `/mnt/nfs_data`，并通过 runner volumes 挂载到 `/data`
+- 数据集与产出通过 volumes 挂载：`/mnt/home:/home:rw`，`/mnt/data:/data:ro`
 
-## 服务器端注册
+## 服务器端注册（storage_huang）
 
-先在 GitLab Web 创建 project runner，复制 `glrt-...` token，再在 GPU 服务器执行：
+**不要**修改现有公共 `main_gpu` runner 的 `user=`。在 gpu01 上 **新增** 第二个 `[[runners]]`：
+
+1. GitLab → Project → Settings → CI/CD → Runners → New project runner  
+   Tags: `linux`, `docker`, `main_gpu`, `storage_huang`；关闭 Run untagged jobs。
+2. 在 gpu01 执行 `scripts/setup_gpu_data_layout.sh` 查看 register 命令与 `config.toml` 片段
+3. 编辑新 runner 的 `[runners.docker]`：`user`、`gpus`、`volumes`（见脚本输出）
+4. `sudo gitlab-runner verify && sudo gitlab-runner restart`
+5. 验证写权限：
 
 ```bash
-sudo gitlab-runner register \
-  --url https://gitlab.com \
-  --token glrt-xxxx \
-  --executor docker \
-  --docker-image pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
+docker run --rm --user 1003:1003 -v /mnt/home:/home:rw alpine \
+  touch /home/huang/cst_ai/ci_outputs/.runner_write_test
 ```
 
-注册后检查 `/etc/gitlab-runner/config.toml`：
+也可运行 `scripts/setup_gpu_data_layout.sh` 打印 uid/gid 与 volumes 片段。
 
-```toml
-concurrent = 1
+## 服务器端注册（仅 smoke / 无 NFS 写需求时）
 
-[[runners]]
-  executor = "docker"
-  [runners.docker]
-    image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
-    gpus = "all"
-    shm_size = 17179869184
-    volumes = ["/cache", "/mnt/data:/data:ro"]
-```
-
-说明：
-
-- `concurrent = 1` 控制单台 GPU 服务器一次只跑一个 GPU job。
-- `gpus = "all"` 是 Docker executor GPU 透传的关键。
-- `shm_size` 避免 PyTorch DataLoader shared memory 不足。
-- `/mnt/data:/data:ro` 是 GPU 服务器本机路径；如果没有统一数据盘，可先移除该 volume。
-
-## GitLab Web 设置
-
-在项目页面进入：
-
-```text
-Settings → CI/CD → Runners → New project runner
-```
-
-推荐设置：
-
-- tags: `linux,docker,gpu`
-- 如需固定某台服务器，再额外加 `main_gpu` 或其他机器名
-- 关闭 `Run untagged jobs`
-- 只有需要限制 protected branch 时才开启 protected runner
-- CI/CD Variables 可覆盖 `MLOPS_GPU_IMAGE`、`DATA_DIR`、`SMOKE_COMMAND`、`TRAIN_COMMAND`
+若只需 GPU smoke、不写个人 home，可继续使用仅带 `main_gpu` 的公共 runner（容器默认 root，**不能**写 `/home/huang/cst_ai`）。
 
 触发方式：
 
@@ -119,13 +93,13 @@ volumes = ["/cache", "/mnt/data:/data:ro", "/mnt/home:/home:rw"]
 NFS 默认 **root_squash**：CI 容器以 `root` 运行时无法写入 `/home/huang/cst_ai`（属主为 huang）。
 症状：`ci_storage.py` 报错 `not writable: /home/huang/cst_ai`。
 
-在 `[runners.docker]` 增加（gpu01 上 huang 示例）：
+**推荐**：为本项目注册带 `storage_huang` tag 的专用 runner，在 `[runners.docker]` 设置：
 
 ```toml
 user = "1003:1003"   # id -u huang; id -g huang
 ```
 
-然后 `sudo gitlab-runner restart`。可用 `scripts/setup_gpu_data_layout.sh` 打印当前 uid/gid。
+完整 `config.toml` 片段见 `scripts/setup_gpu_data_layout.sh`。然后 `sudo gitlab-runner restart`。
 
 这里的 `/mnt/data` 是 **GPU Runner 所在宿主机** 上的路径，也就是 Docker daemon 能看到的本地路径。
 

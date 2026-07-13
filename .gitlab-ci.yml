@@ -19,7 +19,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH == "main"
 
 stages:
-  - deploy
+  - train
 
 variables:
   FF_USE_FASTZIP: "true"

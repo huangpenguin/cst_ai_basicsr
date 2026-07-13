@@ -2,7 +2,7 @@
 # train.yml — Docker executor GPU 训练调度
 # =============================================================================
 #
-# 【跑在哪】GPU 服务器上自建的 self-hosted Docker executor Runner。
+# 【跑在哪】gpu01 上带 tag ``storage_huang`` 的项目 runner（user=huang uid，见 setup_gpu_data_layout.sh）。
 #
 # 【Runner volumes — 持久数据，job 结束后仍在宿主机】
 #   /mnt/home:/home:rw  <->  host /mnt/home   （数据集 + 训练产出；唯一允许路径）
@@ -15,14 +15,15 @@
 # =============================================================================
 
 variables:
-  MLOPS_GPU_IMAGE: "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
   UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
   UV_LINK_MODE: copy
   DATA_DIR: "/data"
   PROJECT_NAME: "cst_ai"
   # GPU 宿主机 Unix 账号（与 /mnt/home/<user> 一致；GitLab 登录名常不同，勿用 GITLAB_USER_LOGIN）
   CST_STORAGE_USER: "huang"
-  # Runner config.toml [runners.docker] also needs user = "<uid>:<gid>" for NFS root_squash (see setup_gpu_data_layout.sh)
+  # Runner tag for NFS-writable jobs (second [[runners]] on gpu01 with user = huang uid/gid)
+  RUNNER_STORAGE_TAG: "storage_huang"
+  MLOPS_GPU_IMAGE: "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   TRAIN_COMMAND: "python train.py"
   TRAIN_DATASET_DIR: "/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired"
@@ -54,11 +55,13 @@ variables:
     datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json
     path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}
 .gpu_docker_base:
-  stage: deploy
+  stage: train
   image: "$MLOPS_GPU_IMAGE"
   tags:
     - linux
     - docker
+    - main_gpu
+    - storage_huang
   resource_group: gpu-training
   needs: []
   cache:
@@ -77,6 +80,12 @@ variables:
 
       echo "Runner: ${CI_RUNNER_DESCRIPTION:-unknown}"
       echo "Runner tags: ${CI_RUNNER_TAGS:-unknown}"
+      if [[ "${CI_RUNNER_TAGS:-}" != *"${RUNNER_STORAGE_TAG}"* ]]; then
+        echo "ERROR: job requires runner tag '${RUNNER_STORAGE_TAG}' (NFS write as ${CST_STORAGE_USER})." >&2
+        echo "On gpu01: scripts/setup_gpu_data_layout.sh && register project runner (see docs/use-cases/gpu-runner.zh-CN.md)" >&2
+        exit 1
+      fi
+      echo "Container user: $(id -u):$(id -g) (expect huang uid for ${CST_STORAGE_USER} home on NFS)"
       echo "GPU image: ${MLOPS_GPU_IMAGE}"
       echo "DATA_DIR: ${DATA_DIR}"
       echo "PROJECT_NAME: ${PROJECT_NAME}"
