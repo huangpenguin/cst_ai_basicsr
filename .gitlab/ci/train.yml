@@ -85,7 +85,28 @@ variables:
         echo "On gpu01: scripts/setup_gpu_data_layout.sh && register project runner (see docs/use-cases/gpu-runner.zh-CN.md)" >&2
         exit 1
       fi
-      echo "Container user: $(id -u):$(id -g) (expect huang uid for ${CST_STORAGE_USER} home on NFS)"
+
+      CONTAINER_UID="$(id -u)"
+      CONTAINER_GID="$(id -g)"
+      echo "Container user: ${CONTAINER_UID}:${CONTAINER_GID} (must not be 0:0 for NFS /home/${CST_STORAGE_USER})"
+      if [[ "${CONTAINER_UID}" == "0" ]]; then
+        echo "ERROR: job container runs as root. NFS root_squash blocks writes to /home/${CST_STORAGE_USER}/cst_ai." >&2
+        echo "On gpu01, edit /etc/gitlab-runner/config.toml for THIS runner only (gpu01-storage-huang-runner):" >&2
+        echo '  [runners.docker]' >&2
+        echo '    user = "1003:1003"   # gpu01: id -u huang; id -g huang' >&2
+        echo "  sudo gitlab-runner restart" >&2
+        echo "Verify: docker run --rm --user 1003:1003 -v /mnt/home:/home:rw alpine touch /home/huang/cst_ai/ci_outputs/.test" >&2
+        exit 1
+      fi
+      NFS_PROBE="/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/.ci_write_probe"
+      if ! (mkdir -p "$(dirname "${NFS_PROBE}")" && touch "${NFS_PROBE}" && rm -f "${NFS_PROBE}"); then
+        echo "ERROR: cannot write under /home/${CST_STORAGE_USER}/cst_ai (uid ${CONTAINER_UID} on NFS)." >&2
+        exit 1
+      fi
+      echo "NFS write probe OK: /home/${CST_STORAGE_USER}/cst_ai"
+
+      echo "GitLab CI cache note: 'Cache file does not exist' on first job / new runner is normal."
+      echo "  GitLab cache: reuses .venv/ between jobs (unrelated to host /cache volume)."
       echo "GPU image: ${MLOPS_GPU_IMAGE}"
       echo "DATA_DIR: ${DATA_DIR}"
       echo "PROJECT_NAME: ${PROJECT_NAME}"

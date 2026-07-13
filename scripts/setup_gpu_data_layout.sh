@@ -34,7 +34,9 @@ cat <<EOF
     --executor docker \\
     --docker-image pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel
 
-  # Then edit /etc/gitlab-runner/config.toml for the NEW [[runners]] block only:
+  # Then edit /etc/gitlab-runner/config.toml — find the NEW [[runners]] block by name/token:
+  #   name = "gpu01-storage-huang-runner"   (or your registration name)
+  # Under that block's [runners.docker] section (NOT the shared main_gpu runner):
   tags = ["linux", "docker", "main_gpu", "storage_huang"]
   gpus = "all"
   volumes = [
@@ -43,6 +45,8 @@ cat <<EOF
     "/mnt/home:/home:rw",
   ]
   user = "${STORAGE_UID}:${STORAGE_GID}"
+
+  # Common mistake: user= added to the wrong [[runners]] block, or job still shows Container user: 0:0
 
   sudo gitlab-runner verify && sudo gitlab-runner restart
 
