@@ -121,17 +121,8 @@ variables:
       fi
       nvidia-smi
 
-      if ! command -v uv >/dev/null 2>&1; then
-        if ! command -v curl >/dev/null 2>&1; then
-          apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl
-          rm -rf /var/lib/apt/lists/*
-        fi
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="${HOME}/.local/bin:${PATH}"
-      fi
-
-      uv --version
+      bash scripts/ensure_uv.sh
+      export PATH="${HOME}/.local/bin:${PATH}"
 
       if [[ ! -f scripts/uv-bootstrap.sh ]]; then
         echo "ERROR: scripts/uv-bootstrap.sh not found. Re-run init-ai add mlops-gpu --update --apply." >&2

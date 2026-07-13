@@ -19,13 +19,7 @@ ensure_uv() {
     exit 1
   fi
 
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "ERROR: curl is required to install uv." >&2
-    exit 1
-  fi
-
-  echo "Installing uv..."
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+  bash "$(dirname "$0")/ensure_uv.sh"
   export PATH="${HOME}/.local/bin:${PATH}"
 }
 
