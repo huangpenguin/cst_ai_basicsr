@@ -96,9 +96,12 @@ def summarize_manifest(dataset_dir: Path) -> None:
 
     sizes: Counter[tuple[int, int]] = Counter()
     with manifest.open(encoding="utf-8") as file:
-        for row in csv.DictReader(file):
-            sizes[(int(row["width"]), int(row["height"]))] += 1
-    print(f"manifest image sizes: {dict(sizes)}")
+        reader = csv.DictReader(file)
+        for row in reader:
+            width_key = "output_width" if "output_width" in row else "width"
+            height_key = "output_height" if "output_height" in row else "height"
+            sizes[(int(row[width_key]), int(row[height_key]))] += 1
+    print(f"manifest output sizes: {dict(sizes)}")
 
 
 def validate_tiff_sizes(dataset_dir: Path, *, window_size: int) -> None:
