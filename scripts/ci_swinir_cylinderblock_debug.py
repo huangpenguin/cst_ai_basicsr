@@ -163,6 +163,8 @@ def build_train_command(
         f"train:total_iter={total_iter}",
         f"datasets:train:batch_size_per_gpu={batch_size_per_gpu}",
         "datasets:train:num_worker_per_gpu=0",
+        # Single-process debug must not use num_gpu=auto (DataParallel + batch_size=1 is very slow).
+        "num_gpu=1",
         "val=~",
         *wandb_force_yml_overrides(),
     ]
@@ -208,13 +210,16 @@ def print_config(
     print(f"max_slices={max_slices}")
     print(f"total_iter={total_iter}")
     print(f"nproc={nproc}")
+    print("num_gpu=1 (forced for single-process debug)")
     print(f"CUDA_LAUNCH_BLOCKING={os.environ.get('CUDA_LAUNCH_BLOCKING', 'unset')}")
     print(f"WANDB_ENABLED={bool(os.environ.get('WANDB_API_KEY'))}")
 
 
 def main(argv: Iterable[str] | None = None) -> None:
     _ = argv
-    os.environ.setdefault("CUDA_LAUNCH_BLOCKING", "1")
+    # Synchronous CUDA helps stack traces but makes SwinIR debug training impractically slow.
+    if os.environ.get("CI_DEBUG_CUDA_SYNC", "0") == "1":
+        os.environ.setdefault("CUDA_LAUNCH_BLOCKING", "1")
 
     max_slices = _env_int("CI_DEBUG_MAX_SLICES", 5)
     total_iter = _env_int("CI_DEBUG_TOTAL_ITER", 30)

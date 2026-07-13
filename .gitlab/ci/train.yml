@@ -230,7 +230,6 @@ train_cylinderblock_swinir_debug:
     - .gpu_debug_artifacts
   timeout: 1h
   variables:
-    CUDA_LAUNCH_BLOCKING: "1"
     CI_DEBUG_MAX_SLICES: "5"
     CI_DEBUG_TOTAL_ITER: "30"
     CI_DEBUG_NPROC: "1"
