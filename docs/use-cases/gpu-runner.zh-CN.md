@@ -108,8 +108,24 @@ DATA_DIR: "/data"
 如果训练需要数据集，应在 GPU Runner 宿主机上配置：
 
 ```toml
-volumes = ["/cache", "/mnt/data:/data:ro"]
+volumes = ["/cache", "/mnt/data:/data:ro", "/mnt/home:/home:rw"]
 ```
+
+训练产出与数据集路径：`/home/<CST_STORAGE_USER>/cst_ai/...`（容器内）=
+`/mnt/home/<CST_STORAGE_USER>/cst_ai/...`（宿主机 NFS）。**不要**把数据集或 checkpoint 写到 runner `/cache`。
+
+### NFS root_squash 与 `user =`
+
+NFS 默认 **root_squash**：CI 容器以 `root` 运行时无法写入 `/home/huang/cst_ai`（属主为 huang）。
+症状：`ci_storage.py` 报错 `not writable: /home/huang/cst_ai`。
+
+在 `[runners.docker]` 增加（gpu01 上 huang 示例）：
+
+```toml
+user = "1003:1003"   # id -u huang; id -g huang
+```
+
+然后 `sudo gitlab-runner restart`。可用 `scripts/setup_gpu_data_layout.sh` 打印当前 uid/gid。
 
 这里的 `/mnt/data` 是 **GPU Runner 所在宿主机** 上的路径，也就是 Docker daemon 能看到的本地路径。
 

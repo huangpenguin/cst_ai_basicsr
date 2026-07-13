@@ -16,12 +16,17 @@ echo "  /mnt/home/${USER_NAME}/${PROJECT_NAME}/"
 
 echo ""
 echo "=== GitLab Runner config.toml (same for all users — no per-user paths) ==="
-cat <<'EOF'
+STORAGE_UID="$(id -u "${USER_NAME}")"
+STORAGE_GID="$(id -g "${USER_NAME}")"
+cat <<EOF
   volumes = [
     "/cache",
     "/mnt/data:/data:ro",
     "/mnt/home:/home:rw",
   ]
+  # Required when NFS exports use root_squash (default). CI job containers otherwise
+  # run as root and cannot write /home/<user>/cst_ai on the bind mount.
+  user = "${STORAGE_UID}:${STORAGE_GID}"
 EOF
 echo "  sudo gitlab-runner restart"
 echo ""

@@ -103,6 +103,12 @@ def resolve_storage_root(
                 "Check runner config.toml volumes include: "
                 '"/mnt/home:/home:rw"\n'
                 f"And ensure /mnt/home/{user}/cst_ai is writable on the GPU host.\n"
+                "If the directory exists but is 'not writable', the job container is probably "
+                "running as root while NFS uses root_squash. Fix on the GPU host:\n"
+                f"  1. uid/gid for {user}: id -u {user}; id -g {user}\n"
+                "  2. In /etc/gitlab-runner/config.toml under [runners.docker]:\n"
+                f'       user = "<uid>:<gid>"   # e.g. user = "1003:1003" for huang on gpu01\n'
+                "  3. sudo gitlab-runner restart\n"
                 f"Details: {exc}"
             ) from exc
         return _reject_cache_storage(home_root, context="CI storage_root")

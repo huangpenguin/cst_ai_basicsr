@@ -22,6 +22,7 @@ variables:
   PROJECT_NAME: "cst_ai"
   # GPU 宿主机 Unix 账号（与 /mnt/home/<user> 一致；GitLab 登录名常不同，勿用 GITLAB_USER_LOGIN）
   CST_STORAGE_USER: "huang"
+  # Runner config.toml [runners.docker] also needs user = "<uid>:<gid>" for NFS root_squash (see setup_gpu_data_layout.sh)
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   TRAIN_COMMAND: "python train.py"
   TRAIN_DATASET_DIR: "/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired"
