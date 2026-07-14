@@ -40,7 +40,7 @@ Devcontainer / docker-dev host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOU
 - Script: `scripts/preprocess_cylinderblock_swinir.py`; previews: `scripts/preview_cylinderblock_preprocess.py`.
 - CI does **not** preprocess; dataset must exist at `/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired` before `train_cylinderblock_swinir_graydn`.
 - Short CI repro job: `train_cylinderblock_swinir_debug` (tiny subset, ~minutes).
-- Weights & Biases: optional via GitLab `WANDB_API_KEY`; syncs TensorBoard when `logger.wandb.project` is set.
+- Monitoring: TensorBoard on NFS (`scripts/serve_tensorboard.sh` + SSH `-L 6006`). wandb optional (`WANDB_API_KEY`).
 
 BasicSR: `PROJECT_NAME=cst_ai`, raw backup at `/mnt/data/cst_ai/`.
 

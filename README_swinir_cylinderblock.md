@@ -184,15 +184,22 @@ CI long training writes **persistent** outputs under the runner bind mount
 tail -f /mnt/home/huang/cst_ai/ci_outputs/latest/experiments/*/train_*.log
 ```
 
-**TensorBoard** (on GPU host):
+**TensorBoard** (GPU host; mid-run OK — events are written live):
 
 ```bash
-bash scripts/serve_tensorboard.sh /mnt/home/huang/cst_ai/ci_outputs
-ssh -L 6006:localhost:6006 user@gpu-host   # from laptop
+# Prefer invoking via repo path; script uses BasicSR/.venv (cwd does not matter).
+bash /path/to/BasicSR/scripts/serve_tensorboard.sh /mnt/home/huang/cst_ai/ci_outputs
+```
+
+Laptop: keep this SSH tunnel open while viewing (`ssh` exit → browser stops).
+
+```bash
+ssh -L 6006:localhost:6006 user@gpu-host
 # http://localhost:6006
 ```
 
 Curves: `losses/l_pix` (training uses `val=~`; run separate val after training if needed).
+`WANDB_API_KEY` is optional; TB on NFS is enough when you can SSH to the GPU host.
 
 **Note:** GitLab `cache:` in CI caches `.venv/` between jobs — that is separate
 from the `/cache` volume and only speeds up dependency install.

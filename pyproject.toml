@@ -15,6 +15,8 @@ dependencies = [
     "requests",
     "scikit-image",
     "scipy",
+    # setuptools>=82 removed pkg_resources; tensorboard/tb-nightly still import it at startup.
+    "setuptools>=70,<82",
     "tb-nightly",
     "torch>=2.6.0,<2.7.0",
     "torchvision>=0.21.0,<0.22.0",
