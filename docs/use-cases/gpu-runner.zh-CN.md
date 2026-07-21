@@ -10,6 +10,8 @@ GitLab 网页负责派发 job，真正执行发生在带 `linux`, `docker`, `mai
 - `[runners.docker] user = "1003:1003"`（或 `id -u huang` / `id -g huang`）
 - GPU 宿主机已安装 NVIDIA driver、Docker 和 NVIDIA Container Toolkit
 - GitLab Runner 的 `config.toml` 中设置 `[runners.docker] gpus = "all"`
+- 为了 Mac 上 `ssh -L 6006:localhost:6006` 能访问 CI 内自动起的 TensorBoard，请在同一 runner 设置：
+  `[runners.docker] network_mode = "host"`（或等价地把容器 `6006` 映射到宿主机）。训练 job 结束会在 `after_script` 里自动 `ci_tensorboard.sh stop` 回收进程。
 - 数据集与产出通过 volumes 挂载：`/mnt/home:/home:rw`，`/mnt/data:/data:ro`
 
 ## 服务器端注册（storage_huang）

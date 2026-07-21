@@ -91,6 +91,21 @@ Persistent CI output:
 
 `/mnt/home/huang/cst_ai/ci_outputs/<pipeline_id>/`
 
+During a CI train job, TensorBoard is started automatically on port `6006`
+(logdir = that run's `tb_logger/`) and stopped in `after_script`. From a Mac:
+
+```bash
+ssh -L 6006:localhost:6006 <user>@<gpu-host>
+# open http://localhost:6006
+```
+
+Requires the GPU runner `network_mode = "host"` (or a published host port).
+After the job ends you can still re-serve events from NFS:
+
+```bash
+bash scripts/serve_tensorboard.sh /mnt/home/huang/cst_ai/ci_outputs/latest/tb_logger
+```
+
 ## 3. Evaluate a trained model
 
 The generic TIFF inference command writes preview panels and, when GT is

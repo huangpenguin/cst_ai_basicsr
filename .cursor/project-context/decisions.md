@@ -43,7 +43,7 @@ Devcontainer / docker-dev host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOU
 - Set `PAIRED_DATASET_NAME` to switch datasets; run `train_paired_tiff_swinir_debug` before `train_paired_tiff_swinir`.
 - Current dataset: `aligned_drive` (Z-filtered via `scripts/folder_roles.yaml` `slice_ranges`: 5-1 275–623, 5-2 185–740, 5-3/5-4 185–745).
 - Training config: `options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml`.
-- Monitoring: TensorBoard on NFS (`scripts/serve_tensorboard.sh` + SSH `-L 6006`). wandb optional (`WANDB_API_KEY`).
+- Monitoring: CI train jobs auto-start/stop TensorBoard on port `6006` via `scripts/ci_tensorboard.sh` (logdir = run `tb_logger/`); Mac views with `ssh -L 6006:localhost:6006`. Runner needs `network_mode = "host"` (see `docs/use-cases/gpu-runner.zh-CN.md`). Manual re-serve: `scripts/serve_tensorboard.sh …/tb_logger`. wandb optional (`WANDB_API_KEY`).
 
 BasicSR: `PROJECT_NAME=cst_ai`, raw backup at `/mnt/data/cst_ai/`.
 

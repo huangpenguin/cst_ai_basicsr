@@ -206,6 +206,9 @@ class SRModel(BaseModel):
         if use_pbar:
             pbar = tqdm(total=len(dataloader), unit="image")
 
+        tb_image_count = int(self.opt["val"].get("tb_image_count", 2))
+        logged_tb_images = 0
+
         val_count = 0
         for val_data in dataloader:
             val_count += 1
@@ -220,6 +223,28 @@ class SRModel(BaseModel):
                 gt_img = tensor2img([visuals["gt"]])
                 metric_data["img2"] = gt_img
                 del self.gt
+
+            if tb_logger and logged_tb_images < tb_image_count:
+                # Log a few LQ / pred / GT panels for qualitative monitoring.
+                def _to_tb_image(tensor: torch.Tensor) -> torch.Tensor:
+                    img = tensor.detach().float().cpu()
+                    if img.dim() == 4:
+                        img = img[0]
+                    if img.dim() == 2:
+                        img = img.unsqueeze(0)
+                    return img.clamp(0.0, 1.0)
+
+                panels = [_to_tb_image(visuals["lq"]), _to_tb_image(visuals["result"])]
+                if "gt" in visuals:
+                    panels.append(_to_tb_image(visuals["gt"]))
+                grid = torch.stack(panels, dim=0)
+                tb_logger.add_images(
+                    f"验证样本/{dataset_name}/{img_name}",
+                    grid,
+                    global_step=current_iter,
+                    dataformats="NCHW",
+                )
+                logged_tb_images += 1
 
             # tentative for out of GPU memory
             del self.lq
@@ -276,8 +301,18 @@ class SRModel(BaseModel):
         logger = get_root_logger()
         logger.info(log_str)
         if tb_logger:
+            metric_zh = {
+                "snr": "验证/SNR",
+                "psnr": "验证/PSNR",
+                "ssim": "验证/SSIM",
+            }
             for metric, value in self.metric_results.items():
                 tb_logger.add_scalar(f"metrics/{dataset_name}/{metric}", value, current_iter)
+                tb_logger.add_scalar(metric_zh.get(metric, f"验证/{metric}"), value, current_iter)
+                if hasattr(self, "best_metric_results"):
+                    best_val = self.best_metric_results[dataset_name][metric]["val"]
+                    tb_logger.add_scalar(f"验证/最佳_{metric}", best_val, current_iter)
+            tb_logger.flush()
 
     def get_current_visuals(self):
         out_dict = OrderedDict()

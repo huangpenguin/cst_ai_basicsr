@@ -90,6 +90,15 @@ class MessageLogger:
             message += f"{v:.3e},"
         message += ")] "
 
+        write_tb = bool(self.use_tb_logger and self.tb_logger is not None and "debug" not in self.exp_name)
+
+        if write_tb:
+            self.tb_logger.add_scalar("训练/epoch", epoch, current_iter)
+            if lrs:
+                self.tb_logger.add_scalar("训练/学习率", lrs[0], current_iter)
+                # Keep English alias for older dashboards / wandb sync.
+                self.tb_logger.add_scalar("train/learning_rate", lrs[0], current_iter)
+
         # time and estimated time
         if "time" in log_vars.keys():
             iter_time = log_vars.pop("time")
@@ -101,16 +110,34 @@ class MessageLogger:
             eta_str = str(datetime.timedelta(seconds=int(eta_sec)))
             message += f"[eta: {eta_str}, "
             message += f"time (data): {iter_time:.3f} ({data_time:.3f})] "
+            if write_tb:
+                self.tb_logger.add_scalar("训练/迭代秒", iter_time, current_iter)
+                self.tb_logger.add_scalar("训练/数据秒", data_time, current_iter)
+                self.tb_logger.add_scalar("训练/ETA秒", float(eta_sec), current_iter)
+                self.tb_logger.add_scalar("train/iter_time", iter_time, current_iter)
+                self.tb_logger.add_scalar("train/data_time", data_time, current_iter)
+                self.tb_logger.add_scalar("train/eta_sec", float(eta_sec), current_iter)
+
+        loss_zh = {
+            "l_pix": "训练/像素损失",
+            "l_g_pix": "训练/生成器像素损失",
+            "l_g_percep": "训练/感知损失",
+            "l_g_gan": "训练/GAN损失",
+        }
 
         # other items, especially losses
         for k, v in log_vars.items():
             message += f"{k}: {v:.4e} "
-            # tensorboard logger
-            if self.use_tb_logger and "debug" not in self.exp_name:
+            if write_tb:
                 if k.startswith("l_"):
                     self.tb_logger.add_scalar(f"losses/{k}", v, current_iter)
+                    self.tb_logger.add_scalar(loss_zh.get(k, f"训练/{k}"), v, current_iter)
                 else:
                     self.tb_logger.add_scalar(k, v, current_iter)
+                    self.tb_logger.add_scalar(f"训练/{k}", v, current_iter)
+
+        if write_tb:
+            self.tb_logger.flush()
         self.logger.info(message)
 
 
@@ -118,7 +145,8 @@ class MessageLogger:
 def init_tb_logger(log_dir):
     from torch.utils.tensorboard import SummaryWriter
 
-    tb_logger = SummaryWriter(log_dir=log_dir)
+    # Flush often so NFS viewers (Mac SSH tunnel) see near-real-time curves.
+    tb_logger = SummaryWriter(log_dir=log_dir, flush_secs=30)
     return tb_logger
 
 
