@@ -37,30 +37,25 @@ bash scripts/docker-dev.sh shell    # 或 run uv run python ...
 
 ## 标准任务步骤
 
-### 预处理（宿主机数据 → NFS 数据集）
+### 已配准数据校验与划分
 
 在 **容器内** 或 `docker-dev.sh run`：
 
 ```bash
-uv run python scripts/preprocess_cylinderblock_swinir.py \
-  --data-root /data/cst_ai/data_0607 \
-  --output-root /home/${USER}/cst_ai/datasets/swinir_cylinderblock_paired \
+uv run python scripts/prepare_paired_tiff_dataset.py \
+  --source-root /data/cst_ai/datasets/<dataset_name> \
+  --output-root /home/${USER}/cst_ai/datasets/<dataset_name> \
   --overwrite
 ```
 
-### 预览 / 预训练对比
-
-```bash
-uv run python scripts/preview_cylinderblock_preprocess.py --slice 250
-uv run python scripts/download_swinir_release.py --only 004_grayDN
-uv run python scripts/compare_swinir_cylinder_pretrained_dn.py --slice 250
-```
+该步骤只校验同名、尺寸和 uint16，并生成 train/val metadata；不会修改或复制图像。
 
 ### 正式微调训练 → GitLab CI
 
-1. 确认 NFS 上已有 `train/LQ`、`train/GT`、`val/...`、`normalization.json`
-2. push 到 `main`，GitLab 手动 play **`train_cylinderblock_swinir_graydn`**
-3. 产出：`/mnt/home/${USER}/cst_ai/ci_outputs/{PipelineID}/`
+1. 确认共享区已有 `LQ/`、`GT/`，个人 NFS 区已有 `train.txt`、`val.txt`、`normalization.json`
+2. 设置 `PAIRED_DATASET_NAME`，push 到 `main`
+3. 先 play **`train_paired_tiff_swinir_debug`**，再 play **`train_paired_tiff_swinir`**
+4. 产出：`/mnt/home/${USER}/cst_ai/ci_outputs/{PipelineID}/`
 
 本地短调试可用 `docker-dev.sh run` + 单卡 `basicsr/train.py`，长跑仍建议 CI。
 

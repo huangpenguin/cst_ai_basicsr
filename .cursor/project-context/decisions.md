@@ -33,13 +33,16 @@ Dev Container and GitLab CI use the **same** image tag `basicsr-mlops-gpu:2.6.0-
 
 Devcontainer / docker-dev host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOUNT_SOURCE=/mnt/home`. Dev Container + compose: see `.devcontainer/README.md`.
 
-## Cylinderblock preprocess geometry (2026-06)
+## Aligned paired-TIFF workflow (2026-07)
 
-- GT: `0-300kV_100uA/XY`, 1530×1530, no transform.
-- LQ: rotate CW per batch (`260520` 193°, `260527` 91°), `nearest` edge fill, bilinear resize to 1530.
-- Script: `scripts/preprocess_cylinderblock_swinir.py`; previews: `scripts/preview_cylinderblock_preprocess.py`.
-- CI does **not** preprocess; dataset must exist at `/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired` before `train_cylinderblock_swinir_graydn`.
-- Short CI repro job: `train_cylinderblock_swinir_debug` (tiny subset, ~minutes).
+- Source data is already pixel-aligned and lives at `/mnt/data/cst_ai/datasets/<name>/{LQ,GT}`.
+- Pair files must have the same filename, dimensions, and uint16 grayscale dtype.
+- `scripts/prepare_paired_tiff_dataset.py` validates pairs and writes only split/normalization metadata under `/mnt/home/<user>/cst_ai/datasets/<name>`.
+- No rotation, resize, crop, resampling, or image copy is allowed in the preparation step.
+- CI reads source images from `/data/cst_ai/datasets/<name>` and metadata from `/home/<user>/cst_ai/datasets/<name>`.
+- Set `PAIRED_DATASET_NAME` to switch datasets; run `train_paired_tiff_swinir_debug` before `train_paired_tiff_swinir`.
+- Current dataset: `aligned_drive` (Z-filtered via `scripts/folder_roles.yaml` `slice_ranges`: 5-1 275–623, 5-2 185–740, 5-3/5-4 185–745).
+- Training config: `options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml`.
 - Monitoring: TensorBoard on NFS (`scripts/serve_tensorboard.sh` + SSH `-L 6006`). wandb optional (`WANDB_API_KEY`).
 
 BasicSR: `PROJECT_NAME=cst_ai`, raw backup at `/mnt/data/cst_ai/`.

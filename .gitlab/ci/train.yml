@@ -29,35 +29,19 @@ variables:
   # Same tag as docker-compose.yml / Dev Container (built from Dockerfile)
   MLOPS_PROJECT_IMAGE: "basicsr-mlops-gpu:2.6.0-cu124"
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
-  TRAIN_COMMAND: "python train.py"
-  TRAIN_DATASET_DIR: "/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired"
-  TRAIN_RAW_DATA_ROOT: "/data/${PROJECT_NAME}/data_0607"
+  # Change only this value when switching to another already-aligned dataset.
+  PAIRED_DATASET_NAME: "aligned_drive"
+  TRAIN_SOURCE_DIR: "/data/${PROJECT_NAME}/datasets/${PAIRED_DATASET_NAME}"
+  TRAIN_DATASET_DIR: "/home/${CST_STORAGE_USER}/cst_ai/datasets/${PAIRED_DATASET_NAME}"
+  TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml"
   TRAIN_EXPERIMENTS_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/experiments"
   TRAIN_NPROC_PER_NODE: "4"
   TRAIN_MASTER_PORT: "4331"
   # PyTorch distributed / NCCL collective timeout (minutes). Override via job variables if needed.
   TRAIN_DIST_TIMEOUT_MIN: "120"
   # Optional Weights & Biases (set WANDB_API_KEY in GitLab CI/CD variables)
-  WANDB_PROJECT: "cst-ai-swinir-cylinderblock"
+  WANDB_PROJECT: "cst-ai-swinir-paired-tiff"
   # WANDB_ENTITY: "your-team-or-username"
-  CI_DEBUG_COMMAND: "python scripts/ci_swinir_cylinderblock_debug.py"
-  TRAIN_CYLINDERBLOCK_COMMAND: >-
-    python scripts/download_swinir_release.py --only noise25 &&
-    python -m torch.distributed.run
-    --nproc_per_node=${TRAIN_NPROC_PER_NODE}
-    --master_port=${TRAIN_MASTER_PORT}
-    basicsr/train.py
-    -opt options/train/SwinIR/train_SwinIR_grayDN_cylinderblock.yml
-    --launcher pytorch
-    --auto_resume
-    --force_yml
-    datasets:train:dataroot_lq=${TRAIN_DATASET_DIR}/train/LQ
-    datasets:train:dataroot_gt=${TRAIN_DATASET_DIR}/train/GT
-    datasets:train:normalization=${TRAIN_DATASET_DIR}/normalization.json
-    datasets:val:dataroot_lq=${TRAIN_DATASET_DIR}/val/LQ
-    datasets:val:dataroot_gt=${TRAIN_DATASET_DIR}/val/GT
-    datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json
-    path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}
 .gpu_docker_base:
   stage: train
   image:
@@ -177,14 +161,23 @@ variables:
         fi
       fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
-        mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn"
-        cp -a "${TRAIN_EXPERIMENTS_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn/" || true
-        echo "Staged experiments from ${TRAIN_EXPERIMENTS_ROOT}"
+        python - "${TRAIN_EXPERIMENTS_ROOT}" "${CI_PROJECT_DIR}/results/paired_tiff_swinir" <<'PY'
+        from pathlib import Path
+        import shutil
+        import sys
+
+        source = Path(sys.argv[1])
+        target = Path(sys.argv[2])
+        for path in source.rglob("*"):
+            if path.is_file() and path.suffix.lower() in {".json", ".log", ".yml", ".yaml"}:
+                destination = target / path.relative_to(source)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, destination)
+        PY
+        echo "Staged text metadata from ${TRAIN_EXPERIMENTS_ROOT}; checkpoints stay on NFS."
       fi
       if [[ -n "${BASICSR_TB_LOGGER_ROOT:-}" && -d "${BASICSR_TB_LOGGER_ROOT}" ]]; then
-        mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn/tb_logger"
-        cp -a "${BASICSR_TB_LOGGER_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_graydn/tb_logger/" || true
-        echo "Staged tensorboard from ${BASICSR_TB_LOGGER_ROOT}"
+        echo "TensorBoard stays on NFS: ${BASICSR_TB_LOGGER_ROOT}"
         TB_SERVE_ROOT="$(dirname "${BASICSR_TB_LOGGER_ROOT}")"
         HOST_SERVE_ROOT="$(python scripts/ci_storage.py host-path "${TB_SERVE_ROOT}" 2>/dev/null || echo "${TB_SERVE_ROOT}")"
         echo "On GPU host: bash scripts/serve_tensorboard.sh ${HOST_SERVE_ROOT}"
@@ -193,7 +186,7 @@ variables:
     when: always
     expire_in: 14 days
     paths:
-      - results/cylinderblock_swinir_graydn/
+      - results/paired_tiff_swinir/
 
 .gpu_debug_artifacts:
   after_script:
@@ -203,15 +196,15 @@ variables:
         TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
       fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
-        mkdir -p "${CI_PROJECT_DIR}/results/cylinderblock_swinir_debug"
-        cp -a "${TRAIN_EXPERIMENTS_ROOT}/." "${CI_PROJECT_DIR}/results/cylinderblock_swinir_debug/" || true
+        mkdir -p "${CI_PROJECT_DIR}/results/paired_tiff_swinir_debug"
+        cp -a "${TRAIN_EXPERIMENTS_ROOT}/." "${CI_PROJECT_DIR}/results/paired_tiff_swinir_debug/" || true
         echo "Staged debug artifacts from ${TRAIN_EXPERIMENTS_ROOT}"
       fi
   artifacts:
     when: always
     expire_in: 7 days
     paths:
-      - results/cylinderblock_swinir_debug/
+      - results/paired_tiff_swinir_debug/
 
 gpu_smoke:
   extends: .gpu_docker_base
@@ -223,16 +216,14 @@ gpu_smoke:
   script:
     - bash -lc "${SMOKE_COMMAND}"
 
-# Short SwinIR train repro: tiny dataset, 1 GPU, ~minutes. Play before full graydn job.
-train_cylinderblock_swinir_debug:
+# Short SwinIR train repro on the prepared metadata, 1 GPU, ~minutes.
+train_paired_tiff_swinir_debug:
   extends:
     - .gpu_docker_base
     - .gpu_debug_artifacts
   timeout: 1h
   variables:
-    CI_DEBUG_MAX_SLICES: "5"
     CI_DEBUG_TOTAL_ITER: "30"
-    CI_DEBUG_NPROC: "1"
     CI_DEBUG_BATCH_SIZE: "1"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
@@ -241,23 +232,39 @@ train_cylinderblock_swinir_debug:
   script:
     - |
       set -euo pipefail
-      python -c "import inspect; from basicsr.utils import options as o; assert hasattr(o, '_strip_local_rank_argv'); print('options_module', inspect.getfile(o)); print('local_rank_fix_ok')"
+      eval "$(python scripts/ci_storage.py prepare --debug --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --emit-shell)"
+      required_paths=(
+        "${TRAIN_SOURCE_DIR}/LQ"
+        "${TRAIN_SOURCE_DIR}/GT"
+        "${TRAIN_DATASET_DIR}/train.txt"
+        "${TRAIN_DATASET_DIR}/val.txt"
+        "${TRAIN_DATASET_DIR}/normalization.json"
+      )
+      for path in "${required_paths[@]}"; do
+        [[ -e "${path}" ]] || { echo "ERROR: missing ${path}" >&2; exit 1; }
+      done
       uv pip install -e . --no-deps
-      bash -lc "${CI_DEBUG_COMMAND}"
+      python scripts/download_swinir_release.py --only noise25
+      python basicsr/train.py \
+        -opt "${TRAIN_OPT}" \
+        --debug \
+        --force_yml \
+        "num_gpu=1" \
+        "datasets:train:dataroot_lq=${TRAIN_SOURCE_DIR}/LQ" \
+        "datasets:train:dataroot_gt=${TRAIN_SOURCE_DIR}/GT" \
+        "datasets:train:meta_info_file=${TRAIN_DATASET_DIR}/train.txt" \
+        "datasets:train:normalization=${TRAIN_DATASET_DIR}/normalization.json" \
+        "datasets:train:batch_size_per_gpu=${CI_DEBUG_BATCH_SIZE}" \
+        "datasets:train:num_worker_per_gpu=0" \
+        "datasets:val:dataroot_lq=${TRAIN_SOURCE_DIR}/LQ" \
+        "datasets:val:dataroot_gt=${TRAIN_SOURCE_DIR}/GT" \
+        "datasets:val:meta_info_file=${TRAIN_DATASET_DIR}/val.txt" \
+        "datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json" \
+        "path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}" \
+        "train:total_iter=${CI_DEBUG_TOTAL_ITER}" \
+        "val=~"
 
-run_training:
-  extends: .gpu_docker_base
-  timeout: 12h
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_MESSAGE =~ /\[run train\]/'
-      when: on_success
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: true
-  script:
-    - bash -lc "${TRAIN_COMMAND}"
-
-train_cylinderblock_swinir_graydn:
+train_paired_tiff_swinir:
   extends:
     - .gpu_docker_base
     - .gpu_train_artifacts
@@ -270,22 +277,23 @@ train_cylinderblock_swinir_graydn:
     - |
       set -euo pipefail
 
-      eval "$(python scripts/ci_storage.py prepare --write-markers --latest-symlink --emit-shell)"
+      eval "$(python scripts/ci_storage.py prepare --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --latest-symlink --emit-shell)"
       if [[ "${TRAIN_DATASET_DIR}" == /cache/* || "${TRAIN_EXPERIMENTS_ROOT}" == /cache/* ]]; then
         echo "ERROR: training paths must not use runner /cache (use /home/${CST_STORAGE_USER}/cst_ai on NFS)." >&2
         exit 1
       fi
       echo "TRAIN_DATASET_DIR=${TRAIN_DATASET_DIR}"
+      echo "TRAIN_SOURCE_DIR=${TRAIN_SOURCE_DIR}"
       echo "TRAIN_EXPERIMENTS_ROOT=${TRAIN_EXPERIMENTS_ROOT}"
       echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
       echo "TRAIN_DIST_TIMEOUT_MIN=${TRAIN_DIST_TIMEOUT_MIN}"
       export TRAIN_DIST_TIMEOUT_MIN
 
       required_paths=(
-        "${TRAIN_DATASET_DIR}/train/LQ"
-        "${TRAIN_DATASET_DIR}/train/GT"
-        "${TRAIN_DATASET_DIR}/val/LQ"
-        "${TRAIN_DATASET_DIR}/val/GT"
+        "${TRAIN_SOURCE_DIR}/LQ"
+        "${TRAIN_SOURCE_DIR}/GT"
+        "${TRAIN_DATASET_DIR}/train.txt"
+        "${TRAIN_DATASET_DIR}/val.txt"
         "${TRAIN_DATASET_DIR}/normalization.json"
       )
 
@@ -298,15 +306,15 @@ train_cylinderblock_swinir_graydn:
       done
 
       if [[ "${dataset_ready}" != "true" ]]; then
-        echo "ERROR: paired dataset not found under ${TRAIN_DATASET_DIR}" >&2
-        echo "Preprocess is intentionally NOT run inside CI. On the GPU host, run:" >&2
-        echo "  export DATA_DIR=/mnt/data" >&2
-        echo "  uv run python scripts/preprocess_cylinderblock_swinir.py \\" >&2
-        echo "    --data-root /mnt/data/cst_ai/data_0607 \\" >&2
-        echo "    --output-root /mnt/home/${CST_STORAGE_USER}/cst_ai/datasets/swinir_cylinderblock_paired \\" >&2
+        echo "ERROR: aligned source data or split metadata is missing." >&2
+        echo "On the GPU host, put same-name uint16 TIFF pairs in:" >&2
+        echo "  /mnt/data/${PROJECT_NAME}/datasets/${PAIRED_DATASET_NAME}/{LQ,GT}" >&2
+        echo "Then run:" >&2
+        echo "  uv run python scripts/prepare_paired_tiff_dataset.py \\" >&2
+        echo "    --source-root /mnt/data/${PROJECT_NAME}/datasets/${PAIRED_DATASET_NAME} \\" >&2
+        echo "    --output-root /mnt/home/${CST_STORAGE_USER}/cst_ai/datasets/${PAIRED_DATASET_NAME} \\" >&2
         echo "    --overwrite" >&2
-        echo "Geometry: 260520 LQ rot 193° CW, 260527 LQ rot 91° CW, nearest-edge + resize to 1530." >&2
-        echo "Verify train/LQ, train/GT, val/LQ, val/GT, normalization.json (geometry.lq_by_batch), then retry." >&2
+        echo "No rotation, resize, crop, or pixel copy is performed." >&2
         exit 1
       fi
 
@@ -335,7 +343,7 @@ train_cylinderblock_swinir_graydn:
 
       WANDB_FORCE_YML=()
       if [[ -n "${WANDB_API_KEY:-}" ]]; then
-        export WANDB_PROJECT="${WANDB_PROJECT:-cst-ai-swinir-cylinderblock}"
+        export WANDB_PROJECT="${WANDB_PROJECT:-cst-ai-swinir-paired-tiff}"
         WANDB_FORCE_YML+=("logger:wandb:project=${WANDB_PROJECT}")
         if [[ -n "${WANDB_ENTITY:-}" ]]; then
           WANDB_FORCE_YML+=("logger:wandb:entity=${WANDB_ENTITY}")
@@ -349,16 +357,17 @@ train_cylinderblock_swinir_graydn:
         --nproc_per_node="${TRAIN_NPROC_PER_NODE}" \
         --master_port="${TRAIN_MASTER_PORT}" \
         basicsr/train.py \
-        -opt options/train/SwinIR/train_SwinIR_grayDN_cylinderblock.yml \
+        -opt "${TRAIN_OPT}" \
         --launcher pytorch \
         --auto_resume \
         --force_yml \
-        "datasets:train:dataroot_lq=${TRAIN_DATASET_DIR}/train/LQ" \
-        "datasets:train:dataroot_gt=${TRAIN_DATASET_DIR}/train/GT" \
+        "datasets:train:dataroot_lq=${TRAIN_SOURCE_DIR}/LQ" \
+        "datasets:train:dataroot_gt=${TRAIN_SOURCE_DIR}/GT" \
+        "datasets:train:meta_info_file=${TRAIN_DATASET_DIR}/train.txt" \
         "datasets:train:normalization=${TRAIN_DATASET_DIR}/normalization.json" \
-        "datasets:val:dataroot_lq=${TRAIN_DATASET_DIR}/val/LQ" \
-        "datasets:val:dataroot_gt=${TRAIN_DATASET_DIR}/val/GT" \
+        "datasets:val:dataroot_lq=${TRAIN_SOURCE_DIR}/LQ" \
+        "datasets:val:dataroot_gt=${TRAIN_SOURCE_DIR}/GT" \
+        "datasets:val:meta_info_file=${TRAIN_DATASET_DIR}/val.txt" \
         "datasets:val:normalization=${TRAIN_DATASET_DIR}/normalization.json" \
         "path:experiments_root=${TRAIN_EXPERIMENTS_ROOT}" \
-        "val=~" \
         "${WANDB_FORCE_YML[@]}"

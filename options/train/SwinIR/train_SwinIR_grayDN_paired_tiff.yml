@@ -1,18 +1,19 @@
-# general settings
-name: train_SwinIR_grayDN_cylinderblock_noise25_ft_P128W8
+# SwinIR grayscale denoising for already aligned uint16 TIFF pairs.
+# Data paths are placeholders overridden by local commands or GitLab CI.
+name: train_SwinIR_grayDN_paired_tiff_noise25_P128W8
 model_type: SwinIRModel
 scale: 1
 num_gpu: auto
 manual_seed: 0
 
-# dataset and data loader settings
 datasets:
   train:
-    name: CylinderblockPairedTrain
+    name: AlignedPairedTiffTrain
     type: PairedTiffImageDataset
-    dataroot_gt: datasets/swinir_cylinderblock_paired/train/GT
-    dataroot_lq: datasets/swinir_cylinderblock_paired/train/LQ
-    normalization: datasets/swinir_cylinderblock_paired/normalization.json
+    dataroot_gt: /data/cst_ai/datasets/paired_tiff/GT
+    dataroot_lq: /data/cst_ai/datasets/paired_tiff/LQ
+    normalization: /home/huang/cst_ai/datasets/paired_tiff/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/paired_tiff/train.txt
     filename_tmpl: '{}'
     io_backend:
       type: disk
@@ -20,24 +21,22 @@ datasets:
     gt_size: 128
     use_hflip: true
     use_rot: true
-
-    # data loader
     num_worker_per_gpu: 4
     batch_size_per_gpu: 4
     dataset_enlarge_ratio: 1
     prefetch_mode: ~
 
   val:
-    name: CylinderblockPairedVal
+    name: AlignedPairedTiffVal
     type: PairedTiffImageDataset
-    dataroot_gt: datasets/swinir_cylinderblock_paired/val/GT
-    dataroot_lq: datasets/swinir_cylinderblock_paired/val/LQ
-    normalization: datasets/swinir_cylinderblock_paired/normalization.json
+    dataroot_gt: /data/cst_ai/datasets/paired_tiff/GT
+    dataroot_lq: /data/cst_ai/datasets/paired_tiff/LQ
+    normalization: /home/huang/cst_ai/datasets/paired_tiff/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/paired_tiff/val.txt
     filename_tmpl: '{}'
     io_backend:
       type: disk
 
-# network structures
 network_g:
   type: SwinIR
   upscale: 1
@@ -52,7 +51,6 @@ network_g:
   upsampler: ''
   resi_connection: '1conv'
 
-# path
 path:
   pretrain_network_g: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth
   param_key_g: params_ema
@@ -60,37 +58,38 @@ path:
   resume_state: ~
   experiments_root: experiments
 
-# training settings
 train:
   ema_decay: 0.999
   optim_g:
     type: Adam
-    lr: !!float 2e-4
+    lr: !!float 1e-4
     weight_decay: 0
     betas: [0.9, 0.99]
 
   scheduler:
     type: MultiStepLR
-    milestones: [50000, 80000, 90000]
+    milestones: [7500, 12000]
     gamma: 0.5
 
   total_iter: 15000
-  warmup_iter: -1  # no warm up
+  warmup_iter: -1
 
-  # losses
+  # MSE directly optimizes error power (PSNR/reference SNR). Override with
+  # L1Loss or CharbonnierLoss for controlled comparisons.
   pixel_opt:
-    type: L1Loss
+    type: MSELoss
     loss_weight: 1.0
     reduction: mean
 
-# validation settings
 val:
-  val_freq: !!float 2e3
+  val_freq: !!float 5e3
   save_img: false
-  tile_size: 128
+  tile_size: 256
   tile_overlap: 32
-
   metrics:
+    snr:
+      type: calculate_snr
+      crop_border: 0
     psnr:
       type: calculate_psnr
       crop_border: 0
@@ -100,7 +99,6 @@ val:
       crop_border: 0
       test_y_channel: false
 
-# logging settings
 logger:
   print_freq: 100
   save_checkpoint_freq: !!float 5e3
@@ -110,9 +108,7 @@ logger:
     entity: ~
     resume_id: ~
 
-# dist training settings
 dist_params:
   backend: nccl
   port: 29500
-  # NCCL collective timeout (minutes). Default PyTorch is 10m; full-res val on rank 0 can exceed that.
   timeout_min: 120

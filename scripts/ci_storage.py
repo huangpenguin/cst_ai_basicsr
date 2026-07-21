@@ -138,7 +138,7 @@ def prepare_run_outputs(
     *,
     pipeline_id: str | None = None,
     debug: bool = False,
-    dataset_subdir: str = "swinir_cylinderblock_paired",
+    dataset_subdir: str = "paired_tiff",
 ) -> CiRunPaths:
     pid = pipeline_id or os.environ.get("CI_PIPELINE_ID") or "local"
     suffix = "_debug" if debug else ""
@@ -186,7 +186,7 @@ def update_latest_symlink(paths: CiRunPaths) -> Path:
     latest = paths.storage_root / "ci_outputs" / "latest"
     if latest.is_symlink() or latest.exists():
         latest.unlink()
-    latest.symlink_to(paths.run_root, target_is_directory=True)
+    latest.symlink_to(paths.run_root.name, target_is_directory=True)
     return latest
 
 
@@ -218,7 +218,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     prepare.add_argument("--emit-shell", action="store_true", help="Print export statements for bash eval")
     prepare.add_argument(
         "--dataset-subdir",
-        default="swinir_cylinderblock_paired",
+        default="paired_tiff",
         help="Dataset folder under storage_root/datasets/",
     )
     prepare.add_argument("--write-markers", action="store_true", help="Write .ci_* marker files in CI_PROJECT_DIR")

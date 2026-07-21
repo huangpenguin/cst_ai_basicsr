@@ -1,0 +1,32 @@
+# Copy this file, fill in real folder names after download, then tell the agent
+# to run organize_paired_tiff_by_folder.py with --roles-file pointing here.
+#
+# role meanings:
+#   gt   - ground-truth / high-dose folder (exactly ONE folder)
+#   lq   - noisy / low-dose folders (one or more)
+#   skip - ignore (docs, previews, junk)
+#
+# Pairing rule:
+#   LQ file stem must exist in the GT folder (e.g. both have ..._0000.tif stem "xxx_0000"
+#   or both named 0000.tif).
+# Output names (same for LQ and GT):
+#   {lq_folder_name}_{original_stem}.tif
+# Example:
+#   1-150kV_4uA_11fr_2x2_600pj_0000.tif
+
+dataset_name: aligned_drive
+
+# Optional: keep only reconstruction slices in [start, end] (inclusive).
+# Keys are parent group dirs (5-1, 5-2, ...). Stem data_0275.tif -> index 275.
+# slice_ranges:
+#   "5-1": {start: 275, end: 623}
+
+folders:
+  # "0-300kV_100uA":
+  #   role: gt
+  # "1-150kV_4uA_11fr_2x2_600pj":
+  #   role: lq
+  # "2-150kV_10uA_11fr_2x2_600pj":
+  #   role: lq
+  # "readme_or_misc":
+  #   role: skip
