@@ -33,8 +33,12 @@ variables:
   PAIRED_DATASET_NAME: "aligned_drive"
   TRAIN_SOURCE_DIR: "/data/${PROJECT_NAME}/datasets/${PAIRED_DATASET_NAME}"
   TRAIN_DATASET_DIR: "/home/${CST_STORAGE_USER}/cst_ai/datasets/${PAIRED_DATASET_NAME}"
+  # Stable across pipelines so --auto_resume finds prior *.state checkpoints.
+  TRAIN_EXPERIMENTS_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/experiments/${PAIRED_DATASET_NAME}"
+  TRAIN_EXP_NAME: "train_SwinIR_grayDN_paired_tiff_noise25_P128W8"
   TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml"
-  TRAIN_EXPERIMENTS_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/ci_outputs/${CI_PIPELINE_ID}/experiments"
+  # Pipeline-scoped run root still used for TB / markers via ci_storage.py prepare.
+  TRAIN_CI_OUTPUTS_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/ci_outputs"
   TRAIN_NPROC_PER_NODE: "4"
   TRAIN_MASTER_PORT: "4331"
   # PyTorch distributed / NCCL collective timeout (minutes). Override via job variables if needed.
@@ -282,6 +286,14 @@ train_paired_tiff_swinir:
       set -euo pipefail
 
       eval "$(python scripts/ci_storage.py prepare --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --latest-symlink --emit-shell)"
+      # Keep TB/run markers from prepare, but train/resume in a stable experiments root.
+      export TRAIN_EXPERIMENTS_ROOT="/home/${CST_STORAGE_USER}/cst_ai/experiments/${PAIRED_DATASET_NAME}"
+      mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
+      printf '%s\n' "${TRAIN_EXPERIMENTS_ROOT}" > "${CI_PROJECT_DIR}/.ci_experiments_root"
+      python scripts/ci_seed_resume.py \
+        --experiments-root "${TRAIN_EXPERIMENTS_ROOT}" \
+        --exp-name "${TRAIN_EXP_NAME}" \
+        --ci-outputs-root "${TRAIN_CI_OUTPUTS_ROOT}"
       if [[ "${TRAIN_DATASET_DIR}" == /cache/* || "${TRAIN_EXPERIMENTS_ROOT}" == /cache/* ]]; then
         echo "ERROR: training paths must not use runner /cache (use /home/${CST_STORAGE_USER}/cst_ai on NFS)." >&2
         exit 1
@@ -292,6 +304,8 @@ train_paired_tiff_swinir:
       echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
       echo "TRAIN_DIST_TIMEOUT_MIN=${TRAIN_DIST_TIMEOUT_MIN}"
       export TRAIN_DIST_TIMEOUT_MIN
+      ls -lah "${TRAIN_EXPERIMENTS_ROOT}/${TRAIN_EXP_NAME}/training_states" || true
+      ls -lah "${TRAIN_EXPERIMENTS_ROOT}/${TRAIN_EXP_NAME}/models" || true
 
       required_paths=(
         "${TRAIN_SOURCE_DIR}/LQ"
