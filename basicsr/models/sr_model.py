@@ -181,17 +181,97 @@ class SRModel(BaseModel):
         self.output = output.mean(dim=0, keepdim=True)
 
     def dist_validation(self, dataloader, current_iter, tb_logger, save_img):
+        # #region agent log
+        def _agent_dbg(message: str, data: dict, hypothesis_id: str) -> None:
+            import json
+            import time
+            from pathlib import Path
+
+            try:
+                payload = {
+                    "sessionId": "052c56",
+                    "runId": "pre-fix",
+                    "hypothesisId": hypothesis_id,
+                    "location": "sr_model.py:dist_validation",
+                    "message": message,
+                    "data": data,
+                    "timestamp": int(time.time() * 1000),
+                }
+                path = Path("/home/huang/code/cst_ai/BasicSR/.cursor/debug-052c56.log")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            except Exception:
+                pass
+
+        # #endregion
+        logger = get_root_logger()
+        rank = int(self.opt.get("rank", 0))
+        world = int(self.opt.get("world_size", 1))
+        n_val = len(dataloader)
+        max_num = self.opt["val"].get("max_num")
+        # #region agent log
+        _agent_dbg(
+            "dist_validation_enter",
+            {
+                "rank": rank,
+                "world_size": world,
+                "current_iter": current_iter,
+                "n_val": n_val,
+                "max_num": max_num,
+                "dist": bool(self.opt.get("dist")),
+            },
+            "A",
+        )
+        # #endregion
         if self.opt.get("dist"):
+            logger.info(
+                "Validation barrier#1 enter (rank=%s/%s, iter=%s, n_val=%s, max_num=%s)",
+                rank,
+                world,
+                current_iter,
+                n_val,
+                max_num,
+            )
+            # #region agent log
+            _agent_dbg("barrier1_enter", {"rank": rank, "current_iter": current_iter}, "A")
+            # #endregion
             dist.barrier()
+            # #region agent log
+            _agent_dbg("barrier1_exit", {"rank": rank, "current_iter": current_iter}, "A")
+            # #endregion
         if self.opt["rank"] == 0:
+            # #region agent log
+            _agent_dbg(
+                "rank0_validation_start",
+                {"current_iter": current_iter, "n_val": n_val, "max_num": max_num},
+                "A",
+            )
+            # #endregion
             self.nondist_validation(dataloader, current_iter, tb_logger, save_img)
+            # #region agent log
+            _agent_dbg("rank0_validation_done", {"current_iter": current_iter}, "A")
+            # #endregion
         if self.opt.get("dist"):
+            logger.info("Validation barrier#2 enter (rank=%s/%s, iter=%s)", rank, world, current_iter)
+            # #region agent log
+            _agent_dbg("barrier2_enter", {"rank": rank, "current_iter": current_iter}, "A")
+            # #endregion
             dist.barrier()
+            # #region agent log
+            _agent_dbg("barrier2_exit", {"rank": rank, "current_iter": current_iter}, "A")
+            # #endregion
+            logger.info("Validation barrier#2 exit (rank=%s/%s, iter=%s)", rank, world, current_iter)
 
     def nondist_validation(self, dataloader, current_iter, tb_logger, save_img):
         dataset_name = dataloader.dataset.opt["name"]
         with_metrics = self.opt["val"].get("metrics") is not None
         use_pbar = self.opt["val"].get("pbar", False)
+        max_num = self.opt["val"].get("max_num")
+        if max_num is not None:
+            max_num = int(max_num)
+            if max_num <= 0:
+                raise ValueError(f"val.max_num must be positive, got {max_num}")
 
         if with_metrics:
             if not hasattr(self, "metric_results"):  # only execute in the first run
@@ -208,6 +288,17 @@ class SRModel(BaseModel):
 
         tb_image_count = int(self.opt["val"].get("tb_image_count", 2))
         logged_tb_images = 0
+        total_available = len(dataloader)
+        planned = total_available if max_num is None else min(total_available, max_num)
+        logger = get_root_logger()
+        logger.info(
+            "Start validation %s at iter=%s: using %s/%s images (max_num=%s)",
+            dataset_name,
+            current_iter,
+            planned,
+            total_available,
+            max_num,
+        )
 
         val_count = 0
         for val_data in dataloader:
@@ -276,6 +367,8 @@ class SRModel(BaseModel):
             if use_pbar:
                 pbar.update(1)
                 pbar.set_description(f"Test {img_name}")
+            if max_num is not None and val_count >= max_num:
+                break
         if use_pbar:
             pbar.close()
 

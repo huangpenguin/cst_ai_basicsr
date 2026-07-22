@@ -84,6 +84,8 @@ train:
 val:
   val_freq: !!float 5e3
   save_img: false
+  # Cap online val so rank0 tiled inference cannot block NCCL barriers for hours.
+  max_num: 32
   # Log a few LQ/pred/GT panels to TensorBoard each validation.
   tb_image_count: 2
   tile_size: 256

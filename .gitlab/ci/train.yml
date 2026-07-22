@@ -154,7 +154,7 @@ variables:
       fi
       bash scripts/ci_tensorboard.sh stop || true
       if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
-        TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
+        export TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
       fi
       if [[ -f "${CI_PROJECT_DIR}/.ci_tb_logger_root" ]]; then
         BASICSR_TB_LOGGER_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_tb_logger_root")"
@@ -169,24 +169,17 @@ variables:
         fi
       fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
-        python - "${TRAIN_EXPERIMENTS_ROOT}" "${CI_PROJECT_DIR}/results/paired_tiff_swinir" <<'PY'
-        from pathlib import Path
-        import shutil
-        import sys
-
-        source = Path(sys.argv[1])
-        target = Path(sys.argv[2])
-        for path in source.rglob("*"):
-            if path.is_file() and path.suffix.lower() in {".json", ".log", ".yml", ".yaml"}:
-                destination = target / path.relative_to(source)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(path, destination)
-        PY
-        echo "Staged text metadata from ${TRAIN_EXPERIMENTS_ROOT}; checkpoints stay on NFS."
+        mkdir -p "${CI_PROJECT_DIR}/results/paired_tiff_swinir"
+        python scripts/ci_stage_train_artifacts.py \
+          --source "${TRAIN_EXPERIMENTS_ROOT}" \
+          --target "${CI_PROJECT_DIR}/results/paired_tiff_swinir"
       fi
       if [[ -n "${BASICSR_TB_LOGGER_ROOT:-}" && -d "${BASICSR_TB_LOGGER_ROOT}" ]]; then
         echo "TensorBoard events on NFS: ${BASICSR_TB_LOGGER_ROOT}"
       fi
+      # #region agent log
+      echo "debug_after_script_ok hypothesisId=B" >> /home/huang/code/cst_ai/BasicSR/.cursor/debug-052c56.log || true
+      # #endregion
   artifacts:
     when: always
     expire_in: 14 days
