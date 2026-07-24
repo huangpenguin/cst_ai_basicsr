@@ -16,7 +16,18 @@ from pathlib import Path
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--experiments-root", type=Path, required=True)
-    parser.add_argument("--exp-name", type=Path, required=True)
+    parser.add_argument(
+        "--exp-name",
+        type=str,
+        default=None,
+        help="Experiment folder name; omit when --opt is set (reads YAML name).",
+    )
+    parser.add_argument(
+        "--opt",
+        type=Path,
+        default=None,
+        help="Train YAML; when set, exp name is taken from top-level name: field.",
+    )
     parser.add_argument(
         "--ci-outputs-root",
         type=Path,
@@ -24,6 +35,20 @@ def parse_args() -> argparse.Namespace:
         help="Default: <experiments-root>/../ci_outputs or /home/<user>/cst_ai/ci_outputs",
     )
     return parser.parse_args()
+
+
+def _exp_name_from_args(args: argparse.Namespace) -> str:
+    if args.opt is not None:
+        import yaml
+
+        opt_path = args.opt.expanduser().resolve()
+        opt = yaml.safe_load(opt_path.read_text(encoding="utf-8"))
+        if not isinstance(opt, dict) or "name" not in opt:
+            raise SystemExit(f"YAML missing top-level name: {opt_path}")
+        return str(opt["name"])
+    if args.exp_name:
+        return str(args.exp_name)
+    raise SystemExit("Provide --exp-name or --opt")
 
 
 def _iter_from_state(path: Path) -> int | None:
@@ -46,7 +71,7 @@ def find_best_state(ci_outputs_root: Path, exp_name: str) -> tuple[Path, int] | 
 def main() -> None:
     args = parse_args()
     experiments_root = args.experiments_root.expanduser().resolve()
-    exp_name = str(args.exp_name)
+    exp_name = _exp_name_from_args(args)
     target_root = experiments_root / exp_name
     target_states = target_root / "training_states"
     target_models = target_root / "models"

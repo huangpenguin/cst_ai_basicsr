@@ -1,0 +1,23 @@
+# Cylinderblock 260527：仅评测 holdout（不训练）。
+# GT=当日最高电流 60µA；排除 300kV。
+
+dataset_name: cylinder_260527_eval_gt60ua
+
+slice_ranges:
+  "260527_cylinderblock image data": {start: 130, end: 750}
+
+folders:
+  "0-300kV_100uA":
+    role: skip
+  "1-150kV_60uA":
+    role: gt
+  "2-150kV_50uA":
+    role: lq
+  "3-150kV_40uA":
+    role: lq
+  "4-150kV_30uA":
+    role: lq
+  "5-150kV_20uA":
+    role: lq
+  "6-150kV_10uA":
+    role: lq

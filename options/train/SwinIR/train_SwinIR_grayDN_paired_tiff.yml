@@ -1,27 +1,43 @@
-# SwinIR grayscale denoising for already aligned uint16 TIFF pairs.
-# Data paths are placeholders overridden by local commands or GitLab CI.
+# =============================================================================
+# SwinIR 灰度去噪（已对齐 uint16 TIFF 对）
+# 训练语义以此文件为准；CI 只负责选本文件并启动进程（见 scripts/ci_emit_opt_env.py）。
+# =============================================================================
+
+# 实验名 = checkpoint / 续训目录名（与 YAML 文件名无关）。
+# 改法：换新实验或避免续训旧 run 时改此字段；续训同一实验则保持不变。
+# 产出路径：{path.experiments_root}/{name}/
 name: train_SwinIR_grayDN_paired_tiff_noise25_P128W8
+
 model_type: SwinIRModel
 scale: 1
-num_gpu: auto
+
+# 进程/GPU 数。CI 用此值作为 torch.distributed.run --nproc_per_node。
+# 改法：改成实际要用的卡数（整数）；勿写 auto（auto 时 CI 会回退到可见 GPU 数）。
+num_gpu: 4
+
+# 随机种子。改法：固定复现用固定整数；想换采样可改一个新值。
 manual_seed: 0
 
 datasets:
   train:
     name: AlignedPairedTiffTrain
     type: PairedTiffImageDataset
-    dataroot_gt: /data/cst_ai/datasets/paired_tiff/GT
-    dataroot_lq: /data/cst_ai/datasets/paired_tiff/LQ
-    normalization: /home/huang/cst_ai/datasets/paired_tiff/normalization.json
-    meta_info_file: /home/huang/cst_ai/datasets/paired_tiff/train.txt
+    # 容器内源图路径（宿主机对应 /mnt/data/...）。换数据集时改目录名（如 aligned_drive）。
+    dataroot_gt: /data/cst_ai/datasets/aligned_drive/GT
+    dataroot_lq: /data/cst_ai/datasets/aligned_drive/LQ
+    # 归一化与划分元数据（宿主机 /mnt/home/<user>/cst_ai/datasets/...）。
+    normalization: /home/huang/cst_ai/datasets/aligned_drive/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/aligned_drive/train.txt
     filename_tmpl: '{}'
     io_backend:
       type: disk
 
+    # 训练裁剪边长。改法：与 network_g.img_size / window_size 兼容（通常相等或可整除）。
     gt_size: 128
     use_hflip: true
     use_rot: true
     num_worker_per_gpu: 4
+    # 每卡 batch。改法：显存不够就减小；有效总 batch ≈ batch_size_per_gpu × num_gpu。
     batch_size_per_gpu: 4
     dataset_enlarge_ratio: 1
     prefetch_mode: ~
@@ -29,10 +45,11 @@ datasets:
   val:
     name: AlignedPairedTiffVal
     type: PairedTiffImageDataset
-    dataroot_gt: /data/cst_ai/datasets/paired_tiff/GT
-    dataroot_lq: /data/cst_ai/datasets/paired_tiff/LQ
-    normalization: /home/huang/cst_ai/datasets/paired_tiff/normalization.json
-    meta_info_file: /home/huang/cst_ai/datasets/paired_tiff/val.txt
+    # 验证集路径应与 train 同源；只换 meta_info_file 为 val.txt。
+    dataroot_gt: /data/cst_ai/datasets/aligned_drive/GT
+    dataroot_lq: /data/cst_ai/datasets/aligned_drive/LQ
+    normalization: /home/huang/cst_ai/datasets/aligned_drive/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/aligned_drive/val.txt
     filename_tmpl: '{}'
     io_backend:
       type: disk
@@ -41,6 +58,7 @@ network_g:
   type: SwinIR
   upscale: 1
   in_chans: 1
+  # 与 datasets.train.gt_size 对齐。改 patch 时一并改这里。
   img_size: 128
   window_size: 8
   img_range: 1.
@@ -52,41 +70,48 @@ network_g:
   resi_connection: '1conv'
 
 path:
+  # 预训练权重（相对仓库根或绝对路径）。换噪声水平时改对应 release 权重。
   pretrain_network_g: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth
   param_key_g: params_ema
   strict_load_g: true
+  # 显式续训文件；一般保持 ~，依赖 CI/本地 --auto_resume 自动找最新 *.state。
   resume_state: ~
-  experiments_root: experiments
+  # 稳定实验根目录（跨 pipeline 续训）。最终目录为 {experiments_root}/{name}/。
+  # 改法：换用户或数据集时改路径中的 user / 数据集名；新开实验通常只改上面的 name。
+  experiments_root: /home/huang/cst_ai/experiments/aligned_drive
 
 train:
   ema_decay: 0.999
   optim_g:
     type: Adam
+    # 学习率。改法：不稳定可略降；配合 scheduler.milestones。
     lr: !!float 1e-4
     weight_decay: 0
     betas: [0.9, 0.99]
 
   scheduler:
     type: MultiStepLR
+    # 学习率衰减迭代点。改法：按 total_iter 比例调整。
     milestones: [7500, 12000]
     gamma: 0.5
 
+  # 总迭代。改法：接着旧实验再训更久 → 保持 name 并增大本值；全新实验 → 改 name 后设目标 iter。
   total_iter: 15000
   warmup_iter: -1
 
-  # MSE directly optimizes error power (PSNR/reference SNR). Override with
-  # L1Loss or CharbonnierLoss for controlled comparisons.
+  # 像素损失。改法：对比实验可改为 L1Loss / CharbonnierLoss。
   pixel_opt:
     type: MSELoss
     loss_weight: 1.0
     reduction: mean
 
 val:
+  # 验证频率（迭代）。改法：越大验证越少、越不容易卡 NCCL；调小则更勤验证。
   val_freq: !!float 5e3
   save_img: false
-  # Cap online val so rank0 tiled inference cannot block NCCL barriers for hours.
+  # 在线验证最多张数，避免全量 811 张拖死分布式 barrier。改法：正式评估可临时加大或另开 test。
   max_num: 32
-  # Log a few LQ/pred/GT panels to TensorBoard each validation.
+  # 每次验证写入 TensorBoard 的 LQ/pred/GT 面板数。
   tb_image_count: 2
   tile_size: 256
   tile_overlap: 32
@@ -105,8 +130,10 @@ val:
 
 logger:
   print_freq: 100
+  # 存盘频率。改法：与 val_freq 可同量级；太频繁会占 NFS。
   save_checkpoint_freq: !!float 5e3
   use_tb_logger: true
+  # wandb：一般保持 ~；CI 若设置了 WANDB_API_KEY 会用 --force_yml 注入 project。
   wandb:
     project: ~
     entity: ~
@@ -114,5 +141,8 @@ logger:
 
 dist_params:
   backend: nccl
+  # 分布式 master 端口。CI 的 torch.distributed.run --master_port 与此一致。
+  # 改法：端口冲突时换一个空闲端口（如 4331、29501）。
   port: 29500
+  # NCCL/进程组超时（分钟）。改法：验证很慢或机器忙时加大。
   timeout_min: 120

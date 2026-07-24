@@ -58,33 +58,23 @@ The training config is:
 
 `options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml`
 
-For GitLab CI, set `PAIRED_DATASET_NAME` in `.gitlab/ci/train.yml` (current
-default: `aligned_drive`), then run:
+Edit paths / `name` / `num_gpu` / hyperparams in that YAML (Chinese comments
+explain each field). CI only points at it via `TRAIN_OPT` in
+`.gitlab/ci/train.yml`, then run:
 
 1. `train_paired_tiff_swinir_debug`
 2. `train_paired_tiff_swinir`
 
-CI reads images directly from `/data/cst_ai/datasets/<dataset_name>` and split
-metadata from `/home/huang/cst_ai/datasets/<dataset_name>`. It never invokes an
-image preprocessor.
+CI loads dataset paths from the YAML (container paths under `/data/...` and
+`/home/...`). It never invokes an image preprocessor.
 
-Local single-GPU example:
+Local example (paths already in YAML; optional single-GPU override):
 
 ```bash
-DATASET_NAME=<dataset_name>
 uv run python scripts/download_swinir_release.py --only noise25
 uv run python basicsr/train.py \
   -opt options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml \
-  --force_yml \
-  "num_gpu=1" \
-  "datasets:train:dataroot_lq=/mnt/data/cst_ai/datasets/${DATASET_NAME}/LQ" \
-  "datasets:train:dataroot_gt=/mnt/data/cst_ai/datasets/${DATASET_NAME}/GT" \
-  "datasets:train:meta_info_file=/mnt/home/huang/cst_ai/datasets/${DATASET_NAME}/train.txt" \
-  "datasets:train:normalization=/mnt/home/huang/cst_ai/datasets/${DATASET_NAME}/normalization.json" \
-  "datasets:val:dataroot_lq=/mnt/data/cst_ai/datasets/${DATASET_NAME}/LQ" \
-  "datasets:val:dataroot_gt=/mnt/data/cst_ai/datasets/${DATASET_NAME}/GT" \
-  "datasets:val:meta_info_file=/mnt/home/huang/cst_ai/datasets/${DATASET_NAME}/val.txt" \
-  "datasets:val:normalization=/mnt/home/huang/cst_ai/datasets/${DATASET_NAME}/normalization.json"
+  --force_yml "num_gpu=1"
 ```
 
 Persistent CI output:
@@ -113,12 +103,17 @@ provided, `metrics.csv` with LQ/output SNR, SNR gain, PSNR, and SSIM:
 
 ```bash
 uv run python scripts/infer_swinir_graydn_tiff.py \
-  --model /mnt/home/huang/cst_ai/ci_outputs/<pipeline_id>/experiments/<experiment>/models/net_g_latest.pth \
-  --inputs /mnt/data/cst_ai/datasets/<dataset_name>/LQ \
+  --model /mnt/home/huang/cst_ai/experiments/<dataset_name>/<experiment>/models/net_g_latest.pth \
+  --baseline-model experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth \
+  --lq-dir /mnt/data/cst_ai/datasets/<dataset_name>/LQ \
   --gt-dir /mnt/data/cst_ai/datasets/<dataset_name>/GT \
+  --meta-info /mnt/home/huang/cst_ai/datasets/<dataset_name>/val.txt \
+  --pick-indices 0 202 405 608 \
   --normalization /mnt/home/huang/cst_ai/datasets/<dataset_name>/normalization.json \
-  --output-dir /mnt/home/huang/cst_ai/outputs/<dataset_name>
+  --output-dir /mnt/home/huang/cst_ai/outputs/<dataset_name>_preft_vs_ft
 ```
+
+With `--baseline-model`, each `*_compare.png` is **LQ | PreFT | FT | GT**.
 
 ## SNR baseline
 

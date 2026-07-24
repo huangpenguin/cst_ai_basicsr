@@ -1,0 +1,128 @@
+# =============================================================================
+# SwinIR 灰度去噪（已对齐 uint16 TIFF 对）— 第二轮实验
+# 基于 train_SwinIR_grayDN_paired_tiff.yml：更大 batch、更长训练、更密验证/存盘。
+# CI：将 .gitlab/ci/train.yml 的 TRAIN_OPT 指到本文件后启动。
+# =============================================================================
+
+# 新实验名（勿与第一轮相同，否则 --auto_resume 会接着旧 15000）。
+# 产出：{path.experiments_root}/{name}/
+name: train_SwinIR_grayDN_paired_tiff_noise25_P128W8_bs8_i30k
+
+model_type: SwinIRModel
+scale: 1
+
+# 进程/GPU 数。CI 用此值作为 torch.distributed.run --nproc_per_node。
+num_gpu: 4
+
+manual_seed: 0
+
+datasets:
+  train:
+    name: AlignedPairedTiffTrain
+    type: PairedTiffImageDataset
+    dataroot_gt: /data/cst_ai/datasets/aligned_drive/GT
+    dataroot_lq: /data/cst_ai/datasets/aligned_drive/LQ
+    normalization: /home/huang/cst_ai/datasets/aligned_drive/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/aligned_drive/train.txt
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+    gt_size: 128
+    use_hflip: true
+    use_rot: true
+    num_worker_per_gpu: 4
+    # 每卡 batch 8；有效总 batch = 8 × 4 = 32。显存 OOM 时改回 4。
+    batch_size_per_gpu: 8
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  val:
+    name: AlignedPairedTiffVal
+    type: PairedTiffImageDataset
+    dataroot_gt: /data/cst_ai/datasets/aligned_drive/GT
+    dataroot_lq: /data/cst_ai/datasets/aligned_drive/LQ
+    normalization: /home/huang/cst_ai/datasets/aligned_drive/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/aligned_drive/val.txt
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+network_g:
+  type: SwinIR
+  upscale: 1
+  in_chans: 1
+  img_size: 128
+  window_size: 8
+  img_range: 1.
+  depths: [6, 6, 6, 6, 6, 6]
+  embed_dim: 180
+  num_heads: [6, 6, 6, 6, 6, 6]
+  mlp_ratio: 2
+  upsampler: ''
+  resi_connection: '1conv'
+
+path:
+  pretrain_network_g: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth
+  param_key_g: params_ema
+  strict_load_g: true
+  resume_state: ~
+  experiments_root: /home/huang/cst_ai/experiments/aligned_drive
+
+train:
+  ema_decay: 0.999
+  optim_g:
+    type: Adam
+    lr: !!float 1e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    # 配合 total_iter=30000 后移衰减点。
+    milestones: [15000, 25000]
+    gamma: 0.5
+
+  total_iter: 30000
+  warmup_iter: -1
+
+  pixel_opt:
+    type: MSELoss
+    loss_weight: 1.0
+    reduction: mean
+
+val:
+  # 每 2000 iter 验证（相对 5e3 更密；仍保留 max_num 防 NCCL 超时）。
+  val_freq: !!float 2e3
+  save_img: false
+  max_num: 32
+  tb_image_count: 2
+  tile_size: 256
+  tile_overlap: 32
+  metrics:
+    snr:
+      type: calculate_snr
+      crop_border: 0
+    psnr:
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+    ssim:
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel: false
+
+logger:
+  print_freq: 100
+  # 与 val_freq 同步存盘。
+  save_checkpoint_freq: !!float 2e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    entity: ~
+    resume_id: ~
+
+dist_params:
+  backend: nccl
+  port: 29500
+  timeout_min: 120

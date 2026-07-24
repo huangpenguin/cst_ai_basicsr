@@ -1,0 +1,28 @@
+# Cylinderblock 260520：同几何 110kV，GT=90µA，排除 300kV（不对齐）。
+# 供 organize_paired_tiff_by_folder.py 使用；勿改名覆盖 aligned_drive。
+
+dataset_name: cylinder_260520_gt90ua
+
+# parent 目录名 = source-root 下直接子目录的父级名
+slice_ranges:
+  "260520_cylinderblock image data": {start: 130, end: 750}
+
+folders:
+  "0-300kV_100uA":
+    role: skip
+  "1-110kV_90uA":
+    role: gt
+  "2-110kV_10uA":
+    role: lq
+  "3-110kV_20uA":
+    role: lq
+  "4-110kV_30uA":
+    role: lq
+  "6-110kV_50uA":
+    role: lq
+  "7-110kV_60uA":
+    role: lq
+  "8-110kV_70uA":
+    role: lq
+  "9-110kV_80uA":
+    role: lq
