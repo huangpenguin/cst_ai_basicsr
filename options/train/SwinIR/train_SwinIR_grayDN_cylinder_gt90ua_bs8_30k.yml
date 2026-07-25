@@ -5,7 +5,8 @@
 # =============================================================================
 
 # 新实验名；勿与 archive 旧 cylinder 或 aligned_drive 实验同名。
-name: train_SwinIR_grayDN_cylinder_gt90ua_noise25_P128W8_bs8_i30k
+# 注：曾试 batch_size_per_gpu=8，4×32GiB 上单卡约 31.65GiB 即 OOM；改回与 phantom 相同的 4。
+name: train_SwinIR_grayDN_cylinder_gt90ua_noise25_P128W8_bs4_i30k
 
 model_type: SwinIRModel
 scale: 1
@@ -28,7 +29,8 @@ datasets:
     use_hflip: true
     use_rot: true
     num_worker_per_gpu: 4
-    batch_size_per_gpu: 8
+    # 每卡 batch。32GiB 上 bs=8 会 OOM；与已跑通的 phantom YAML 保持一致用 4。
+    batch_size_per_gpu: 4
     dataset_enlarge_ratio: 1
     prefetch_mode: ~
 
