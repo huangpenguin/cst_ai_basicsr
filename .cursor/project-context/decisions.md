@@ -48,8 +48,11 @@ Devcontainer / docker-dev host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOU
 - Cylinder retrain dataset: `cylinder_260520_gt90ua` (GT=`1-110kV_90uA`, skip `0-300kV_100uA`, slices 130–750, hardlink flat LQ/GT). Meta + `SPLIT_RECORD.md` under `/mnt/home/huang/cst_ai/datasets/cylinder_260520_gt90ua/`. Eval-only holdout: `cylinder_260527_eval_gt60ua` (not for training).
 - Training config (round 1 phantom): `options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml`.
 - Training config (round 2 phantom): `options/train/SwinIR/train_SwinIR_grayDN_paired_tiff_bs8_30k.yml`.
-- Training config (cylinder GT90µA): `options/train/SwinIR/train_SwinIR_grayDN_cylinder_gt90ua_bs8_30k.yml` — CI `TRAIN_OPT` points here; `batch_size_per_gpu: 4` (bs=8 OOM'd ~31.65GiB/GPU on 32GiB cards). Manual CI start; do not overwrite `aligned_drive` or `archive/cylinderblock_*`.
-- Fixed eval benchmark: `/mnt/home/huang/cst_ai/outputs/eval_benchmark_v1/` (5 columns: battery 5/20, battery 5/27, cyl 5/20 val20, cyl 5/27 holdout20, phantom val20). Build via `scripts/build_eval_benchmark_v1.py`.
+- Training config (cylinder GT90µA): `options/train/SwinIR/train_SwinIR_grayDN_cylinder_gt90ua_bs8_30k.yml` — `batch_size_per_gpu: 4` (bs=8 OOM'd ~31.65GiB/GPU). Do not overwrite `aligned_drive` or `archive/cylinderblock_*`.
+- Mix dataset: `cylinder_phantom_mix` — hardlink merge of `cylinder_260520_gt90ua` (`cyl__`) + `aligned_drive` (`ph__`); stratified domain×µA train/val; meta under `/mnt/home/huang/cst_ai/datasets/cylinder_phantom_mix/`. Built by `scripts/build_cylinder_phantom_mix.py`.
+- Training config (mix): `options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30k.yml` — CI `TRAIN_OPT` points here. Manual CI start.
+- Fixed eval benchmark v1: `/mnt/home/huang/cst_ai/outputs/eval_benchmark_v1/` (kept).
+- Fixed eval benchmark v2: `/mnt/home/huang/cst_ai/outputs/eval_benchmark_v2/` — leakage-first; 260527 stratified by µA; 260520 from safe val pool only. Build via `scripts/build_eval_benchmark_v2.py`.
 - PreFT vs FT panels: `scripts/infer_swinir_graydn_tiff.py --baseline-model …` → `LQ|PreFT|FT|GT`.
 - Old cylinder archive weights: `/mnt/home/huang/cst_ai/archive/cylinderblock_2673001900/net_g_latest.pth` (read-only).
 - Monitoring: CI train jobs auto-start/stop TensorBoard on port `6006` via `scripts/ci_tensorboard.sh` (logdir = run `tb_logger/`); Mac views with `ssh -L 6006:localhost:6006`. Runner needs `network_mode = "host"` (see `docs/use-cases/gpu-runner.zh-CN.md`). Manual re-serve: `scripts/serve_tensorboard.sh …/tb_logger`. wandb optional (`WANDB_API_KEY`).

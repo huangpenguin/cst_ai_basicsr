@@ -30,8 +30,8 @@ variables:
   MLOPS_PROJECT_IMAGE: "basicsr-mlops-gpu:2.6.0-cu124"
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   # 训练语义的唯一入口：路径 / name / num_gpu / port / timeout 等均在该 YAML 中改。
-  # 换实验：改此处指向的 YAML。当前为 cylinder 260520 GT=90µA（不覆盖 aligned_drive）。
-  TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_cylinder_gt90ua_bs8_30k.yml"
+  # 换实验：改此处指向的 YAML。当前为 cylinder+phantom 混合集 cylinder_phantom_mix。
+  TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30k.yml"
   # Pipeline-scoped run root still used for TB / markers via ci_storage.py prepare.
   TRAIN_CI_OUTPUTS_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/ci_outputs"
   # Optional Weights & Biases (set WANDB_API_KEY in GitLab CI/CD variables)
