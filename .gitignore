@@ -49,13 +49,13 @@ lightning_logs/
 tensorboard/
 *.log
 
-# Data and model artifacts (repo-root only; do not match basicsr/data/)
+# Data and model artifacts (repo-root only; do not match basicsr/data/ or basicsr/models/)
 /data/
 /datasets/
 outputs/
 artifacts/
 checkpoints/
-models/
+/models/
 *.ckpt
 *.pt
 *.pth

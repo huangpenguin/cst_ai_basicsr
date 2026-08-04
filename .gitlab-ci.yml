@@ -1,7 +1,8 @@
 # 根 CI 编排文件：定义全局 pipeline 行为，具体 job 拆到 .gitlab/ci/ 下。
 # GitLab 会在 push / MR 时读取本文件并创建 pipeline。
 #
-# quality.yml 负责 Ruff/Pyright，train.yml 负责 GPU smoke/debug/正式训练。
+# quality.yml 负责 Ruff/Pyright；train.yml 负责 SwinIR-M GPU smoke/debug/正式训练；
+# train_tsfdan.yml 负责 TSFDAN+LoRA 独立 job（不改默认 TRAIN_OPT）。
 
 default:
   interruptible: true
@@ -27,3 +28,4 @@ variables:
 include:
   - local: .gitlab/ci/quality.yml
   - local: .gitlab/ci/train.yml
+  - local: .gitlab/ci/train_tsfdan.yml

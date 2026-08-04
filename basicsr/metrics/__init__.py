@@ -2,11 +2,12 @@ from copy import deepcopy
 
 from basicsr.utils.registry import METRIC_REGISTRY
 
+from .epi import calculate_epi
 from .niqe import calculate_niqe
 from .psnr_ssim import calculate_psnr, calculate_ssim
 from .snr import calculate_snr
 
-__all__ = ["calculate_psnr", "calculate_ssim", "calculate_niqe", "calculate_snr"]
+__all__ = ["calculate_psnr", "calculate_ssim", "calculate_niqe", "calculate_snr", "calculate_epi"]
 
 
 def calculate_metric(data, opt):

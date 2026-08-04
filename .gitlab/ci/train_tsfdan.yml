@@ -1,0 +1,191 @@
+# =============================================================================
+# train_tsfdan.yml — TSFDAN dual-branch + LoRA 独立 CI（训练 / 评测分离）
+# 复用 train.yml 的 .gpu_docker_base / .gpu_train_artifacts 模板；
+# 不改默认 TRAIN_OPT，也不与 train_paired_tiff_swinir* 共用 job。
+#
+# 手动顺序（main pipeline）：
+#   1) train_tsfdan_lora_mix_debug   （可选冒烟）
+#   2) train_tsfdan_lora_mix         （正式 10k）
+#   3) eval_tsfdan_lora_mix          （v2 panels + comparison_table）
+#
+# 换实验：改 TSFDAN_TRAIN_OPT 指向的 YAML（或改该 YAML 内 paths/超参），
+# 并按需改 TSFDAN_EVAL_TAG / TSFDAN_EVAL_ROOT。
+# =============================================================================
+
+variables:
+  TSFDAN_TRAIN_OPT: "options/train/SwinIR/train_TSFDAN_lora_cylinder_phantom_mix_bs4_10k.yml"
+  TSFDAN_EVAL_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/outputs/eval_benchmark_v2"
+  TSFDAN_EVAL_TAG: "tsfdan_lora_mix"
+  TSFDAN_PRETRAIN: "experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt"
+  # Relative to TRAIN_EXPERIMENTS_ROOT / TRAIN_EXP_NAME after ci_emit_opt_env.
+  TSFDAN_CKPT_NAME: "net_g_latest.pth"
+
+train_tsfdan_lora_mix_debug:
+  extends:
+    - .gpu_docker_base
+    - .gpu_debug_artifacts
+  timeout: 1h
+  variables:
+    CI_DEBUG_TOTAL_ITER: "30"
+    CI_DEBUG_BATCH_SIZE: "1"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      set -euo pipefail
+      eval "$(python scripts/ci_emit_opt_env.py --opt "${TSFDAN_TRAIN_OPT}")"
+      eval "$(python scripts/ci_storage.py prepare --debug --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --emit-shell)"
+      mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
+      printf '%s\n' "${TRAIN_EXPERIMENTS_ROOT}" > "${CI_PROJECT_DIR}/.ci_experiments_root"
+      required_paths=(
+        "${TRAIN_DATAROOT_LQ}"
+        "${TRAIN_DATAROOT_GT}"
+        "${TRAIN_META_TRAIN}"
+        "${TRAIN_META_VAL}"
+        "${TRAIN_NORM}"
+      )
+      for path in "${required_paths[@]}"; do
+        [[ -e "${path}" ]] || { echo "ERROR: missing ${path}" >&2; exit 1; }
+      done
+      bash scripts/ci_tensorboard.sh start "${BASICSR_TB_LOGGER_ROOT}"
+      echo "TensorBoard: ssh -L ${TB_PORT}:localhost:${TB_PORT} <user>@<gpu-host> → http://localhost:${TB_PORT}"
+      uv pip install -e . --no-deps
+      python scripts/download_tsfdan_pretrain.py
+      python basicsr/train.py \
+        -opt "${TSFDAN_TRAIN_OPT}" \
+        --debug \
+        --force_yml \
+        "num_gpu=1" \
+        "datasets:train:batch_size_per_gpu=${CI_DEBUG_BATCH_SIZE}" \
+        "datasets:train:num_worker_per_gpu=0" \
+        "train:total_iter=${CI_DEBUG_TOTAL_ITER}" \
+        "val=~"
+
+train_tsfdan_lora_mix:
+  extends:
+    - .gpu_docker_base
+    - .gpu_train_artifacts
+  timeout: 48h
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      set -euo pipefail
+
+      eval "$(python scripts/ci_emit_opt_env.py --opt "${TSFDAN_TRAIN_OPT}")"
+      eval "$(python scripts/ci_storage.py prepare --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --latest-symlink --emit-shell)"
+      mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
+      printf '%s\n' "${TRAIN_EXPERIMENTS_ROOT}" > "${CI_PROJECT_DIR}/.ci_experiments_root"
+      python scripts/ci_seed_resume.py \
+        --experiments-root "${TRAIN_EXPERIMENTS_ROOT}" \
+        --opt "${TSFDAN_TRAIN_OPT}" \
+        --ci-outputs-root "${TRAIN_CI_OUTPUTS_ROOT}"
+      if [[ "${TRAIN_DATASET_DIR}" == /cache/* || "${TRAIN_EXPERIMENTS_ROOT}" == /cache/* ]]; then
+        echo "ERROR: training paths must not use runner /cache (use /home/${CST_STORAGE_USER}/cst_ai on NFS)." >&2
+        exit 1
+      fi
+      echo "TSFDAN_TRAIN_OPT=${TSFDAN_TRAIN_OPT}"
+      echo "TRAIN_EXP_NAME=${TRAIN_EXP_NAME}"
+      echo "TRAIN_EXPERIMENTS_ROOT=${TRAIN_EXPERIMENTS_ROOT}"
+      echo "TRAIN_NPROC_PER_NODE=${TRAIN_NPROC_PER_NODE}"
+      echo "TRAIN_MASTER_PORT=${TRAIN_MASTER_PORT}"
+
+      required_paths=(
+        "${TRAIN_DATAROOT_LQ}"
+        "${TRAIN_DATAROOT_GT}"
+        "${TRAIN_META_TRAIN}"
+        "${TRAIN_META_VAL}"
+        "${TRAIN_NORM}"
+      )
+      for path in "${required_paths[@]}"; do
+        [[ -e "${path}" ]] || { echo "ERROR: missing ${path}" >&2; exit 1; }
+      done
+
+      bash scripts/ci_tensorboard.sh start "${BASICSR_TB_LOGGER_ROOT}"
+      echo "TensorBoard: ssh -L ${TB_PORT}:localhost:${TB_PORT} <user>@<gpu-host> → http://localhost:${TB_PORT}"
+
+      uv pip install -e . --no-deps
+      python scripts/download_tsfdan_pretrain.py
+
+      WANDB_FORCE_YML=()
+      if [[ -n "${WANDB_API_KEY:-}" ]]; then
+        export WANDB_PROJECT="${WANDB_PROJECT:-cst-ai-tsfdan-lora-mix}"
+        WANDB_FORCE_YML+=("logger:wandb:project=${WANDB_PROJECT}")
+        if [[ -n "${WANDB_ENTITY:-}" ]]; then
+          WANDB_FORCE_YML+=("logger:wandb:entity=${WANDB_ENTITY}")
+        fi
+        echo "WANDB enabled: project=${WANDB_PROJECT}"
+      else
+        echo "WANDB disabled (set WANDB_API_KEY in GitLab CI/CD variables to enable)."
+      fi
+
+      TORCHRUN_ARGS=(
+        --nproc_per_node="${TRAIN_NPROC_PER_NODE}"
+        --master_port="${TRAIN_MASTER_PORT}"
+        basicsr/train.py
+        -opt "${TSFDAN_TRAIN_OPT}"
+        --launcher pytorch
+      )
+      # Checkpoints save merged base weights (for infer). No --auto_resume with fresh LoRA wrap.
+      if ((${#WANDB_FORCE_YML[@]})); then
+        TORCHRUN_ARGS+=(--force_yml "${WANDB_FORCE_YML[@]}")
+      fi
+      python -m torch.distributed.run "${TORCHRUN_ARGS[@]}"
+
+# ---------------------------------------------------------------------------
+# Eval: PreFT vs FT panels on eval_benchmark_v2 + fill comparison_table.md
+# Manual after train_tsfdan_lora_mix succeeds. Does not need: the train job
+# (reads stable NFS ckpt path so you can start it in a later pipeline too).
+# ---------------------------------------------------------------------------
+eval_tsfdan_lora_mix:
+  extends:
+    - .gpu_docker_base
+  timeout: 6h
+  resource_group: gpu-training
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      set -euo pipefail
+      eval "$(python scripts/ci_emit_opt_env.py --opt "${TSFDAN_TRAIN_OPT}")"
+      CKPT="${TRAIN_EXPERIMENTS_ROOT}/${TRAIN_EXP_NAME}/models/${TSFDAN_CKPT_NAME}"
+      PRE="${TSFDAN_PRETRAIN}"
+      ROOT="${TSFDAN_EVAL_ROOT}"
+      TAG="${TSFDAN_EVAL_TAG}"
+
+      echo "CKPT=${CKPT}"
+      echo "PRE=${PRE}"
+      echo "ROOT=${ROOT}"
+      echo "TAG=${TAG}"
+
+      [[ -f "${CKPT}" ]] || {
+        echo "ERROR: missing FT checkpoint ${CKPT}" >&2
+        echo "Run train_tsfdan_lora_mix first (or set TSFDAN_CKPT_NAME / YAML experiments_root)." >&2
+        exit 1
+      }
+      [[ -d "${ROOT}/pairs" ]] || {
+        echo "ERROR: missing eval root ${ROOT} (build with scripts/build_eval_benchmark.py)." >&2
+        exit 1
+      }
+
+      uv pip install -e . --no-deps
+      python scripts/download_tsfdan_pretrain.py
+      [[ -f "${PRE}" ]] || { echo "ERROR: missing PreFT ${PRE}" >&2; exit 1; }
+
+      bash scripts/run_eval_benchmark_tsfdan.sh \
+        "${ROOT}" \
+        "${CKPT}" \
+        "${TAG}" \
+        "cuda:0" \
+        "${PRE}"
+
+      python scripts/fill_eval_benchmark_table.py --root "${ROOT}" --preset v2
+      echo "Panels: ${ROOT}/panels/${TAG}/"
+      echo "Table:  ${ROOT}/comparison_table.md"
+      echo "Host:   /mnt/home/${CST_STORAGE_USER}/cst_ai/outputs/eval_benchmark_v2/"

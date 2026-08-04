@@ -1,0 +1,125 @@
+# =============================================================================
+# TSFDAN dual-branch + peft LoRA — cylinder_phantom_mix 微调
+# 基座: experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt
+# CI: .gitlab/ci/train_tsfdan.yml（独立 job，不改 TRAIN_OPT 默认）
+# =============================================================================
+
+name: train_TSFDAN_lora_cylinder_phantom_mix_P128_bs4_i10k
+
+model_type: TSFDANSwinIRModel
+scale: 1
+num_gpu: 4
+manual_seed: 0
+# LoRA freezes most params; allow DDP to skip unused grads safely.
+find_unused_parameters: true
+
+datasets:
+  train:
+    name: CylinderPhantomMixTrain
+    type: PairedTiffImageDataset
+    dataroot_gt: /data/cst_ai/datasets/cylinder_phantom_mix/GT
+    dataroot_lq: /data/cst_ai/datasets/cylinder_phantom_mix/LQ
+    normalization: /home/huang/cst_ai/datasets/cylinder_phantom_mix/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/cylinder_phantom_mix/train.txt
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+    gt_size: 128
+    use_hflip: true
+    use_rot: true
+    num_worker_per_gpu: 4
+    batch_size_per_gpu: 4
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  val:
+    name: CylinderPhantomMixVal
+    type: PairedTiffImageDataset
+    dataroot_gt: /data/cst_ai/datasets/cylinder_phantom_mix/GT
+    dataroot_lq: /data/cst_ai/datasets/cylinder_phantom_mix/LQ
+    normalization: /home/huang/cst_ai/datasets/cylinder_phantom_mix/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/cylinder_phantom_mix/val.txt
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+network_g:
+  type: TSFDANSwinIR
+  in_chans: 1
+  embed_dim: 60
+  img_size: 64
+  window_size: 8
+  img_range: 1.
+  depths: [4, 4, 4]
+  num_heads: [6, 6, 6]
+  mlp_ratio: 2
+
+lora:
+  enable: true
+  r: 16
+  lora_alpha: 16
+  target_modules: [qkv, proj, fc1, fc2, conv_after_body, conv_last]
+  bias: none
+
+path:
+  pretrain_network_g: experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt
+  param_key_g: ~
+  strict_load_g: true
+  resume_state: ~
+  experiments_root: /home/huang/cst_ai/experiments/cylinder_phantom_mix_tsfdan_lora
+
+train:
+  ema_decay: 0
+  optim_g:
+    type: Adam
+    lr: !!float 1e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [5000, 8000]
+    gamma: 0.5
+
+  total_iter: 10000
+  warmup_iter: -1
+
+  pixel_opt:
+    type: MSELoss
+    loss_weight: 1.0
+    reduction: mean
+
+val:
+  val_freq: !!float 1e4
+  save_img: false
+  max_num: 8
+  tb_image_count: 2
+  tile_size: 256
+  tile_overlap: 32
+  metrics:
+    snr:
+      type: calculate_snr
+      crop_border: 0
+    psnr:
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+    ssim:
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel: false
+
+logger:
+  print_freq: 100
+  save_checkpoint_freq: !!float 2e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    entity: ~
+    resume_id: ~
+
+dist_params:
+  backend: nccl
+  port: 29510
+  timeout_min: 120

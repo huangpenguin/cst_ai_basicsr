@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build fixed eval_benchmark_v2 (leakage-first; multi-µA where safe).
+"""Build fixed eval_benchmark (default path: eval_benchmark_v2; leakage-first).
 
-Keeps the same five columns as v1. Does not delete eval_benchmark_v1.
+Single entrypoint. Pass --output-root for other trees. Does not delete a sibling tree unless that path is --output-root.
 
 Sampling rules:
   - battery_*: same as v1 (all LQ currents vs max-current GT)

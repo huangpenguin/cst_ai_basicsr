@@ -1,0 +1,12 @@
+---
+description: Keep one script per capability; extend with flags instead of duplicating
+alwaysApply: true
+---
+
+# Singular Scripts
+
+- **One entrypoint per capability**: do not add a second script that does the same job (e.g. `*_v2.py` / `*_v1.sh` beside an existing runner/filler/builder).
+- **Extend, do not fork**: when requirements change (new benchmark root, extra model rows, optional columns), add CLI flags / args to the existing script.
+- **Replace on generalize**: if you introduce a generalized script, delete or thin-wrap the old specialized one in the same change; do not leave parallel copies in `scripts/`.
+- **Versioned outputs, not versioned scripts**: versioning belongs in data/output paths (`eval_benchmark_v1/`, `eval_benchmark_v2/`) or a `--version` / `--root` flag—not in duplicated filenames for the same function.
+- **Docs**: update any README / `decisions.md` references that still point at removed script names.
