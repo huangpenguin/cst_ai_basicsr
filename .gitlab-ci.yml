@@ -15,7 +15,9 @@ default:
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Repo default branch is master (GitLab remote); keep main for compatibility.
     - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
 
 stages:
   - quality

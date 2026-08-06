@@ -32,6 +32,9 @@ train_tsfdan_lora_mix_debug:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: manual
+      allow_failure: true
   script:
     - |
       set -euo pipefail
@@ -70,6 +73,9 @@ train_tsfdan_lora_mix:
   timeout: 48h
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == "master"
       when: manual
       allow_failure: true
   script:
@@ -148,6 +154,9 @@ eval_tsfdan_lora_mix:
   resource_group: gpu-training
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == "master"
       when: manual
       allow_failure: true
   script:

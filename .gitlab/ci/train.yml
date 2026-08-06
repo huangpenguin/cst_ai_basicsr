@@ -210,6 +210,9 @@ gpu_smoke:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: true
+    - if: $CI_COMMIT_BRANCH == "master"
+      when: manual
+      allow_failure: true
   script:
     - bash -lc "${SMOKE_COMMAND}"
 
@@ -224,6 +227,9 @@ train_paired_tiff_swinir_debug:
     CI_DEBUG_BATCH_SIZE: "1"
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == "master"
       when: manual
       allow_failure: true
   script:
@@ -265,6 +271,9 @@ train_paired_tiff_swinir:
   timeout: 48h
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == "master"
       when: manual
       allow_failure: true
   script:
