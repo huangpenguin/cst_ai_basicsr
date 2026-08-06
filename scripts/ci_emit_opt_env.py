@@ -74,10 +74,19 @@ def emit_env(opt_path: Path) -> dict[str, str]:
     train_gt = _require(opt, "datasets", "train", "dataroot_gt")
     train_meta = _require(opt, "datasets", "train", "meta_info_file")
     train_norm = _require(opt, "datasets", "train", "normalization")
-    val_lq = _require(opt, "datasets", "val", "dataroot_lq")
-    val_gt = _require(opt, "datasets", "val", "dataroot_gt")
-    val_meta = _require(opt, "datasets", "val", "meta_info_file")
-    val_norm = _require(opt, "datasets", "val", "normalization")
+    # Optional online-val dataset block (TSFDAN train YAMLs may omit it; eval is a separate CI job).
+    datasets = opt.get("datasets") or {}
+    val_opt = datasets.get("val") if isinstance(datasets, dict) else None
+    if isinstance(val_opt, dict):
+        val_lq = _require(opt, "datasets", "val", "dataroot_lq")
+        val_gt = _require(opt, "datasets", "val", "dataroot_gt")
+        val_meta = _require(opt, "datasets", "val", "meta_info_file")
+        val_norm = _require(opt, "datasets", "val", "normalization")
+    else:
+        val_lq = train_lq
+        val_gt = train_gt
+        val_meta = train_meta
+        val_norm = train_norm
     port = _require(opt, "dist_params", "port")
     timeout_min = _require(opt, "dist_params", "timeout_min")
     num_gpu = _require(opt, "num_gpu")

@@ -1,0 +1,16 @@
+# ALcast 150kV：GT=66mA，LQ=4/7/17/33mA。无自动 slice_ranges（空白由人工剔除）。
+# 供 organize_paired_tiff_by_folder.py 使用。
+
+dataset_name: alcast_150kv_gt66ma
+
+folders:
+  "1_ALcast_150kV66mA_data":
+    role: gt
+  "1_ALcast_150kV4mA_data":
+    role: lq
+  "1_ALcast_150kV7mA_data":
+    role: lq
+  "1_ALcast_150kV17mA_data":
+    role: lq
+  "1_ALcast_150kV33mA_data":
+    role: lq

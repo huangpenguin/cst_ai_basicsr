@@ -1,0 +1,93 @@
+# =============================================================================
+# SwinIR 灰度去噪 — ALcast 150kV（GT=66mA，LQ=4/7/17/33mA）
+# 数据：/data/cst_ai/datasets/alcast_150kv_gt66ma（hardlink）
+# CI：将 TRAIN_OPT 指到本文件后手动启动 train_paired_tiff_swinir。
+# 评测与训练分离：无在线 DDP val；正式指标走训后 test（ALcast holdout + 旧 bench）。
+# =============================================================================
+
+name: train_SwinIR_grayDN_alcast_gt66ma_noise25_P128W8_bs4_i30k
+
+model_type: SwinIRModel
+scale: 1
+num_gpu: 4
+manual_seed: 0
+
+datasets:
+  train:
+    name: ALcastGt66maTrain
+    type: PairedTiffImageDataset
+    dataroot_gt: /data/cst_ai/datasets/alcast_150kv_gt66ma/GT
+    dataroot_lq: /data/cst_ai/datasets/alcast_150kv_gt66ma/LQ
+    normalization: /home/huang/cst_ai/datasets/alcast_150kv_gt66ma/normalization.json
+    meta_info_file: /home/huang/cst_ai/datasets/alcast_150kv_gt66ma/train.txt
+    filename_tmpl: '{}'
+    io_backend:
+      type: disk
+
+    gt_size: 128
+    use_hflip: true
+    use_rot: true
+    num_worker_per_gpu: 4
+    batch_size_per_gpu: 4
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+# No datasets.val / no top-level val metrics: online DDP val skipped (was blocking train CI).
+# Holdout lists remain on disk: val.txt (unused in train), test.txt (formal post-train eval).
+val: ~
+
+network_g:
+  type: SwinIR
+  upscale: 1
+  in_chans: 1
+  img_size: 128
+  window_size: 8
+  img_range: 1.
+  depths: [6, 6, 6, 6, 6, 6]
+  embed_dim: 180
+  num_heads: [6, 6, 6, 6, 6, 6]
+  mlp_ratio: 2
+  upsampler: ''
+  resi_connection: '1conv'
+
+path:
+  pretrain_network_g: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth
+  param_key_g: params_ema
+  strict_load_g: true
+  resume_state: ~
+  experiments_root: /home/huang/cst_ai/experiments/alcast_150kv_gt66ma
+
+train:
+  ema_decay: 0.999
+  optim_g:
+    type: Adam
+    lr: !!float 1e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+
+  scheduler:
+    type: MultiStepLR
+    milestones: [15000, 25000]
+    gamma: 0.5
+
+  total_iter: 30000
+  warmup_iter: -1
+
+  pixel_opt:
+    type: MSELoss
+    loss_weight: 1.0
+    reduction: mean
+
+logger:
+  print_freq: 100
+  save_checkpoint_freq: !!float 2e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    entity: ~
+    resume_id: ~
+
+dist_params:
+  backend: nccl
+  port: 29500
+  timeout_min: 120

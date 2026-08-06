@@ -30,8 +30,8 @@ variables:
   MLOPS_PROJECT_IMAGE: "basicsr-mlops-gpu:2.6.0-cu124"
   SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
   # 训练语义的唯一入口：路径 / name / num_gpu / port / timeout 等均在该 YAML 中改。
-  # 换实验：改此处指向的 YAML。当前为 cylinder+phantom 混合集 cylinder_phantom_mix。
-  TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30k.yml"
+  # 换实验：改此处指向的 YAML。当前为 ALcast 150kV GT=66mA。
+  TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_alcast_gt66ma_bs4_30k.yml"
   # Pipeline-scoped run root still used for TB / markers via ci_storage.py prepare.
   TRAIN_CI_OUTPUTS_ROOT: "/home/${CST_STORAGE_USER}/cst_ai/ci_outputs"
   # Optional Weights & Biases (set WANDB_API_KEY in GitLab CI/CD variables)
@@ -237,7 +237,6 @@ train_paired_tiff_swinir_debug:
         "${TRAIN_DATAROOT_LQ}"
         "${TRAIN_DATAROOT_GT}"
         "${TRAIN_META_TRAIN}"
-        "${TRAIN_META_VAL}"
         "${TRAIN_NORM}"
       )
       for path in "${required_paths[@]}"; do
@@ -248,6 +247,7 @@ train_paired_tiff_swinir_debug:
       uv pip install -e . --no-deps
       python scripts/download_swinir_release.py --only noise25
       # Debug-only overrides (short run). Paths / name / experiments_root 一律以 YAML 为准。
+      # val=~: skip online DDP val (same as formal ALcast YAML / TSFDAN).
       python basicsr/train.py \
         -opt "${TRAIN_OPT}" \
         --debug \
@@ -300,7 +300,6 @@ train_paired_tiff_swinir:
         "${TRAIN_DATAROOT_LQ}"
         "${TRAIN_DATAROOT_GT}"
         "${TRAIN_META_TRAIN}"
-        "${TRAIN_META_VAL}"
         "${TRAIN_NORM}"
       )
 
@@ -329,6 +328,7 @@ train_paired_tiff_swinir:
       bash scripts/ci_tensorboard.sh start "${BASICSR_TB_LOGGER_ROOT}"
       echo "TensorBoard: ssh -L ${TB_PORT}:localhost:${TB_PORT} <user>@<gpu-host> → http://localhost:${TB_PORT}"
       echo "Requires GPU runner [runners.docker] network_mode = \"host\" (or published ${TB_PORT})."
+      echo "Online val disabled when YAML has val:~ ; formal metrics/panels run after train (test holdout + prior benches)."
 
       echo "CI_COMMIT_SHA=${CI_COMMIT_SHA}"
       if grep -qE '(torch\.distributed\.run|torchrun)[^\\n]*--use-env' .gitlab/ci/train.yml; then
