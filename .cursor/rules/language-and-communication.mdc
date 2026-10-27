@@ -6,6 +6,7 @@ alwaysApply: true
 # Language
 
 - **User-facing communication**: default to English unless the user requests another language.
+- **Product UI and figures**: Gradio labels, in-app copy, user-visible errors, and text on comparison/eval panels must be English (keep technical terms: SwinIR, TIFF, LoRA). Operator docs such as `apps/denoise_demo/README.md` may be Simplified Chinese. Chat replies follow the user's language preference.
 - **Identifiers**: keep variable names, function names, class names, filenames, commit messages, and PR descriptions in English.
 - **Docs/comments default**: follow the repository's existing language style.
 - **Chinese-native Python docs**: when `.cursor/project-context/` explicitly enables it, apply `python-bilingual-docs.mdc` for Chinese docstrings/comments with English technical terms in parentheses.

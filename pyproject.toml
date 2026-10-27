@@ -7,11 +7,13 @@ requires-python = ">=3.11"
 dependencies = [
     "addict",
     "future",
+    "gradio>=6.25.0",
     "lmdb",
     "numpy>=1.17",
     "opencv-python-headless",
     "peft>=0.20.0",
     "Pillow",
+    "pydantic>=2.13.4",
     "pywavelets>=1.9.0",
     "pyyaml",
     "requests",
@@ -20,6 +22,7 @@ dependencies = [
     # setuptools>=82 removed pkg_resources; tensorboard/tb-nightly still import it at startup.
     "setuptools>=70,<82",
     "tb-nightly",
+    "timm>=1.0.28",
     "torch>=2.6.0,<2.7.0",
     "torchvision>=0.21.0,<0.22.0",
     "tqdm",
