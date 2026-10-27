@@ -100,6 +100,41 @@ compose 默认没有 `ports:`，需要从浏览器访问 Gradio（7860）或 Ten
 
 环境变量：`DATA_DIR`、`PROJECT_NAME=cst_ai`、`WORK_DIR`、`CST_STORAGE_USER`（默认 `huang`）、可选 `DATASET_DIR`、`OUTPUT_DIR`。
 
+### 2.4 代码位置与多机使用
+
+- **唯一工作副本**在 NFS：`/mnt/home/huang/code/cst_ai/BasicSR`。gpu01（训练）和 demo 机（Gradio）挂载同一路径、共用这一份代码；gpu01 上的 `/home/huang/code/cst_ai/BasicSR` 是指向它的 symlink。
+- **venv 不放 NFS**（venv 不可重定位，且 NFS 上小文件 IO 慢）。每台机器各自在本地盘建 venv，`~/.zshrc` 里按目录限定：
+
+  ```zsh
+  # cst_ai/BasicSR lives on NFS; keep its uv venv on this host's local disk.
+  _basicsr_uv_env() {
+    local venv="$HOME/.local/share/venvs/basicsr"
+    case "$PWD/" in
+      /mnt/home/huang/code/cst_ai/BasicSR/*|/home/huang/code/cst_ai/BasicSR/*)
+        export UV_PROJECT_ENVIRONMENT="$venv" ;;
+      *)
+        [[ "${UV_PROJECT_ENVIRONMENT:-}" == "$venv" ]] && unset UV_PROJECT_ENVIRONMENT ;;
+    esac
+  }
+  autoload -Uz add-zsh-hook
+  add-zsh-hook chpwd _basicsr_uv_env
+  _basicsr_uv_env
+  ```
+
+  然后在仓库里 `uv sync --frozen --dev`。uv 缓存用默认的 `~/.cache/uv`。如果某台机器的 `$HOME` 本身就在 NFS 上，把 `venv` 和 `UV_CACHE_DIR` 改到本地盘，例如 `/var/tmp/$USER/`。
+- **Demo 机启动**：
+
+  ```bash
+  tmux new -s denoise-demo
+  cd /mnt/home/huang/code/cst_ai/BasicSR
+  uv run --frozen python apps/denoise_demo/app.py
+  ```
+
+  需要 NVIDIA driver ≥ 550（cu124 wheel）；启动日志里各 preset 的 ckpt 应为 `exists: true`。
+- **训练**仍然通过 gpu01 上的 GitLab CI 跑，CI 自己 clone 代码，跟工作副本放在哪里无关。训练产物、数据集元数据、评测输出都在 `/mnt/home/huang/cst_ai/`。
+- **Git remotes**：`gitlab`（主仓库，`master` 跟踪 `gitlab/master`）、`github`（私有镜像 `huangpenguin/cst_ai_basicsr`）、`all`（一次 push 同时推两边：`git push all master`）、`upstream`（XPixelGroup/BasicSR，只 fetch）。
+- **同一时间只在一台机器上做 git 写操作**（commit / checkout / rebase），否则 NFS 上的 `.git/index.lock` 会冲突。
+
 ## 3. GitLab CI 与 GPU Runner
 
 ### 3.1 Pipeline 结构

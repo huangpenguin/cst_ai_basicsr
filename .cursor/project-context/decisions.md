@@ -23,6 +23,13 @@ Env vars: `DATA_DIR`, `PROJECT_NAME`, `WORK_DIR`, `CST_STORAGE_USER`, optional `
 CI training outputs (container `/home/<CST_STORAGE_USER>/cst_ai/`, host `/mnt/home/<CST_STORAGE_USER>/cst_ai/`).
 Default `CST_STORAGE_USER=huang` in `.gitlab/ci/train.yml` (not `GITLAB_USER_LOGIN`).
 
+## Repo location / multi-host (2026-09)
+
+- Single working copy on NFS: `/mnt/home/huang/code/cst_ai/BasicSR` (gpu01 `/home/huang/code/cst_ai/BasicSR` is a symlink to it). gpu01 = CI training; a second GPU host runs the Gradio demo from the same path.
+- venv is per-host on local disk via `UV_PROJECT_ENVIRONMENT=$HOME/.local/share/venvs/basicsr` (zsh `chpwd` hook scoped to the repo); never a `.venv` on NFS.
+- Remotes: `gitlab` (primary), `github` (private mirror `huangpenguin/cst_ai_basicsr`), `all` (dual push), `upstream` (XPixelGroup, fetch only). Git write ops on one host at a time.
+- Details: `docs/infrastructure.md` §2.4.
+
 ## Unified GPU image (2026-07)
 
 Dev Container and GitLab CI use the **same** image tag `basicsr-mlops-gpu:2.6.0-cu124` from `Dockerfile` (base `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel`).
