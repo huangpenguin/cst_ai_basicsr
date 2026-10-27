@@ -3,7 +3,7 @@
 # =============================================================================
 #
 # 【镜像】与 Dev Container 相同：Dockerfile → basicsr-mlops-gpu:2.6.0-cu124（FROM 官方 pytorch）。
-# gpu01 首次：bash scripts/build_mlops_image.sh；依赖仍由 uv-bootstrap.sh 装入 .venv（与 postCreate 相同）。
+# gpu01 首次：bash scripts/env/build_mlops_image.sh；依赖仍由 uv-bootstrap.sh 装入 .venv（与 postCreate 相同）。
 #
 # 【跑在哪】gpu01 上带 tag ``storage_huang`` 的项目 runner（user=huang uid，见 setup_gpu_data_layout.sh）。
 #
@@ -28,7 +28,7 @@ variables:
   RUNNER_STORAGE_TAG: "storage_huang"
   # Same tag as docker-compose.yml / Dev Container (built from Dockerfile)
   MLOPS_PROJECT_IMAGE: "basicsr-mlops-gpu:2.6.0-cu124"
-  SMOKE_COMMAND: "python scripts/ci_gpu_smoke.py"
+  SMOKE_COMMAND: "python scripts/ci/ci_gpu_smoke.py"
   # 训练语义的唯一入口：路径 / name / num_gpu / port / timeout 等均在该 YAML 中改。
   # 换实验：改此处指向的 YAML。当前为 ALcast 150kV GT=66mA。
   TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_alcast_gt66ma_bs4_30k.yml"
@@ -70,7 +70,7 @@ variables:
       echo "Runner tags: ${CI_RUNNER_TAGS:-unknown}"
       if [[ "${CI_RUNNER_TAGS:-}" != *"${RUNNER_STORAGE_TAG}"* ]]; then
         echo "ERROR: job requires runner tag '${RUNNER_STORAGE_TAG}' (NFS write as ${CST_STORAGE_USER})." >&2
-        echo "On gpu01: scripts/setup_gpu_data_layout.sh && register project runner (see docs/use-cases/gpu-runner.zh-CN.md)" >&2
+        echo "On gpu01: scripts/env/setup_gpu_data_layout.sh && register project runner (see docs/infrastructure.md)" >&2
         exit 1
       fi
 
@@ -109,14 +109,14 @@ variables:
       fi
       nvidia-smi
 
-      bash scripts/ensure_uv.sh
+      bash scripts/env/ensure_uv.sh
 
-      if [[ ! -f scripts/uv-bootstrap.sh ]]; then
-        echo "ERROR: scripts/uv-bootstrap.sh not found. Re-run init-ai add mlops-gpu --update --apply." >&2
+      if [[ ! -f scripts/env/uv-bootstrap.sh ]]; then
+        echo "ERROR: scripts/env/uv-bootstrap.sh not found. Re-run init-ai add mlops-gpu --update --apply." >&2
         exit 1
       fi
 
-      bash scripts/uv-bootstrap.sh
+      bash scripts/env/uv-bootstrap.sh
 
       if [[ -d .venv ]]; then
         export VIRTUAL_ENV="${CI_PROJECT_DIR}/.venv"
@@ -147,7 +147,7 @@ variables:
       if [[ -f "${CI_PROJECT_DIR}/.ci_run_root" ]]; then
         export CI_RUN_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_run_root")"
       fi
-      bash scripts/ci_tensorboard.sh stop || true
+      bash scripts/ci/ci_tensorboard.sh stop || true
       if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
         export TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
       fi
@@ -155,17 +155,17 @@ variables:
         BASICSR_TB_LOGGER_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_tb_logger_root")"
       fi
       if [[ -n "${CI_RUN_ROOT:-}" ]]; then
-        HOST_RUN_ROOT="$(python scripts/ci_storage.py host-path "${CI_RUN_ROOT}" 2>/dev/null || true)"
+        HOST_RUN_ROOT="$(python scripts/ci/ci_storage.py host-path "${CI_RUN_ROOT}" 2>/dev/null || true)"
         echo "Persistent CI_RUN_ROOT=${CI_RUN_ROOT}"
         if [[ -n "${HOST_RUN_ROOT}" ]]; then
           echo "  GPU host path: ${HOST_RUN_ROOT}"
           echo "  Latest symlink: $(dirname "${HOST_RUN_ROOT}")/latest"
-          echo "  Re-serve TB later: bash scripts/serve_tensorboard.sh ${HOST_RUN_ROOT}/tb_logger"
+          echo "  Re-serve TB later: bash scripts/ci/serve_tensorboard.sh ${HOST_RUN_ROOT}/tb_logger"
         fi
       fi
       if [[ -n "${TRAIN_EXPERIMENTS_ROOT:-}" && -d "${TRAIN_EXPERIMENTS_ROOT}" ]]; then
         mkdir -p "${CI_PROJECT_DIR}/results/paired_tiff_swinir"
-        python scripts/ci_stage_train_artifacts.py \
+        python scripts/ci/ci_stage_train_artifacts.py \
           --source "${TRAIN_EXPERIMENTS_ROOT}" \
           --target "${CI_PROJECT_DIR}/results/paired_tiff_swinir"
       fi
@@ -188,7 +188,7 @@ variables:
       if [[ -f "${CI_PROJECT_DIR}/.ci_run_root" ]]; then
         export CI_RUN_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_run_root")"
       fi
-      bash scripts/ci_tensorboard.sh stop || true
+      bash scripts/ci/ci_tensorboard.sh stop || true
       if [[ -f "${CI_PROJECT_DIR}/.ci_experiments_root" ]]; then
         TRAIN_EXPERIMENTS_ROOT="$(cat "${CI_PROJECT_DIR}/.ci_experiments_root")"
       fi
@@ -235,8 +235,8 @@ train_paired_tiff_swinir_debug:
   script:
     - |
       set -euo pipefail
-      eval "$(python scripts/ci_emit_opt_env.py --opt "${TRAIN_OPT}")"
-      eval "$(python scripts/ci_storage.py prepare --debug --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --emit-shell)"
+      eval "$(python scripts/ci/ci_emit_opt_env.py --opt "${TRAIN_OPT}")"
+      eval "$(python scripts/ci/ci_storage.py prepare --debug --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --emit-shell)"
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
       printf '%s\n' "${TRAIN_EXPERIMENTS_ROOT}" > "${CI_PROJECT_DIR}/.ci_experiments_root"
       required_paths=(
@@ -248,10 +248,10 @@ train_paired_tiff_swinir_debug:
       for path in "${required_paths[@]}"; do
         [[ -e "${path}" ]] || { echo "ERROR: missing ${path}" >&2; exit 1; }
       done
-      bash scripts/ci_tensorboard.sh start "${BASICSR_TB_LOGGER_ROOT}"
+      bash scripts/ci/ci_tensorboard.sh start "${BASICSR_TB_LOGGER_ROOT}"
       echo "TensorBoard: ssh -L ${TB_PORT}:localhost:${TB_PORT} <user>@<gpu-host> → http://localhost:${TB_PORT}"
       uv pip install -e . --no-deps
-      python scripts/download_swinir_release.py --only noise25
+      python scripts/download/download_swinir_release.py --only noise25
       # Debug-only overrides (short run). Paths / name / experiments_root 一律以 YAML 为准。
       # val=~: skip online DDP val (same as formal ALcast YAML / TSFDAN).
       python basicsr/train.py \
@@ -281,11 +281,11 @@ train_paired_tiff_swinir:
       set -euo pipefail
 
       # 训练身份 / 路径 / 卡数 / 端口：全部从 TRAIN_OPT YAML 导出。
-      eval "$(python scripts/ci_emit_opt_env.py --opt "${TRAIN_OPT}")"
-      eval "$(python scripts/ci_storage.py prepare --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --latest-symlink --emit-shell)"
+      eval "$(python scripts/ci/ci_emit_opt_env.py --opt "${TRAIN_OPT}")"
+      eval "$(python scripts/ci/ci_storage.py prepare --dataset-subdir "${PAIRED_DATASET_NAME}" --write-markers --latest-symlink --emit-shell)"
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
       printf '%s\n' "${TRAIN_EXPERIMENTS_ROOT}" > "${CI_PROJECT_DIR}/.ci_experiments_root"
-      python scripts/ci_seed_resume.py \
+      python scripts/ci/ci_seed_resume.py \
         --experiments-root "${TRAIN_EXPERIMENTS_ROOT}" \
         --opt "${TRAIN_OPT}" \
         --ci-outputs-root "${TRAIN_CI_OUTPUTS_ROOT}"
@@ -325,7 +325,7 @@ train_paired_tiff_swinir:
         echo "On the GPU host, put same-name uint16 TIFF pairs in:" >&2
         echo "  /mnt/data/${PROJECT_NAME}/datasets/${PAIRED_DATASET_NAME}/{LQ,GT}" >&2
         echo "Then run:" >&2
-        echo "  uv run python scripts/prepare_paired_tiff_dataset.py \\" >&2
+        echo "  uv run python scripts/data/prepare_paired_tiff_dataset.py \\" >&2
         echo "    --source-root /mnt/data/${PROJECT_NAME}/datasets/${PAIRED_DATASET_NAME} \\" >&2
         echo "    --output-root /mnt/home/${CST_STORAGE_USER}/cst_ai/datasets/${PAIRED_DATASET_NAME} \\" >&2
         echo "    --overwrite" >&2
@@ -334,7 +334,7 @@ train_paired_tiff_swinir:
       fi
 
       mkdir -p "${TRAIN_EXPERIMENTS_ROOT}"
-      bash scripts/ci_tensorboard.sh start "${BASICSR_TB_LOGGER_ROOT}"
+      bash scripts/ci/ci_tensorboard.sh start "${BASICSR_TB_LOGGER_ROOT}"
       echo "TensorBoard: ssh -L ${TB_PORT}:localhost:${TB_PORT} <user>@<gpu-host> → http://localhost:${TB_PORT}"
       echo "Requires GPU runner [runners.docker] network_mode = \"host\" (or published ${TB_PORT})."
       echo "Online val disabled when YAML has val:~ ; formal metrics/panels run after train (test holdout + prior benches)."
@@ -358,7 +358,7 @@ train_paired_tiff_swinir:
       print('dist_timeout_fix_ok')
       "
 
-      python scripts/download_swinir_release.py --only noise25
+      python scripts/download/download_swinir_release.py --only noise25
 
       WANDB_FORCE_YML=()
       if [[ -n "${WANDB_API_KEY:-}" ]]; then

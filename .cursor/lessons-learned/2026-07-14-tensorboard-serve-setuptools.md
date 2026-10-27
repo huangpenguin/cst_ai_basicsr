@@ -2,7 +2,7 @@
 
 ## Symptom
 
-`bash scripts/serve_tensorboard.sh` failed with `exec: "tensorboard": executable file not found in $PATH`.
+`bash scripts/ci/serve_tensorboard.sh` failed with `exec: "tensorboard": executable file not found in $PATH`.
 `uv run tensorboard` failed with `ModuleNotFoundError: No module named 'pkg_resources'`.
 
 ## Root cause

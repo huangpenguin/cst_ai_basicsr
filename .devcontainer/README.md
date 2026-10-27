@@ -32,7 +32,7 @@ export HOME_MOUNT_SOURCE=/mnt/home   # 有 NFS 时
 
 ```bash
 export DATA_MOUNT_SOURCE=/mnt/data
-bash scripts/docker-dev.sh shell    # 或 run uv run python ...
+bash scripts/env/docker-dev.sh shell    # 或 run uv run python ...
 ```
 
 ## 标准任务步骤
@@ -42,7 +42,7 @@ bash scripts/docker-dev.sh shell    # 或 run uv run python ...
 在 **容器内** 或 `docker-dev.sh run`：
 
 ```bash
-uv run python scripts/prepare_paired_tiff_dataset.py \
+uv run python scripts/data/prepare_paired_tiff_dataset.py \
   --source-root /data/cst_ai/datasets/<dataset_name> \
   --output-root /home/${USER}/cst_ai/datasets/<dataset_name> \
   --overwrite
@@ -69,7 +69,7 @@ uv run python scripts/prepare_paired_tiff_dataset.py \
 可以，但 **Python/GPU 任务应通过容器**：
 
 - ✅ **最佳**：Cursor **Dev Container** 窗口里和 Agent 对话（左下角显示 `Dev Container`）
-- ✅ 宿主机 Agent 执行：`bash scripts/docker-dev.sh run uv run python ...`
+- ✅ 宿主机 Agent 执行：`bash scripts/env/docker-dev.sh run uv run python ...`
 - ❌ 避免：宿主机 `conda base` 里直接 `uv run`（易漂移；若 shell 里还有 `export UV_PROJECT_ENVIRONMENT=.venv-huang` 请 **unset**）
 
 ## 重建 venv
@@ -77,7 +77,7 @@ uv run python scripts/prepare_paired_tiff_dataset.py \
 ```bash
 # 在容器内或 docker-dev.sh 中（root 删旧 venv 仅当曾被 root 占用时）：
 docker run --rm --user root -v "$PWD:/workspace" basicsr-mlops-gpu:2.6.0-cu124 rm -rf /workspace/.venv /workspace/.venv-huang
-bash scripts/docker-dev.sh bootstrap
+bash scripts/env/docker-dev.sh bootstrap
 unset UV_PROJECT_ENVIRONMENT
 uv run python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 ```

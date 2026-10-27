@@ -1,56 +1,18 @@
-# BasicSR docs
+# 文档索引
 
-This folder includes:
+| 文档 | 内容 | 什么时候看 |
+|------|------|------------|
+| [workflow.md](workflow.md) | 目录速查、存储布局、数据准备、训练（本地 / CI / 续训 / TensorBoard）、评测、Demo | 日常操作 |
+| [experiments.md](experiments.md) | 历次实验的参数、路径、命令、评测结果与当时的需求原话 | 查某次实验怎么做的、结论是什么 |
+| [infrastructure.md](infrastructure.md) | GPU 镜像、Dev Container / compose、数据挂载契约、GitLab Runner、代码质量、Agent 规则 | 搭环境、改 CI、排查 Runner |
+| [research-notes.md](research-notes.md) | 数据与伪影特性、评价标准、3D 切片划分、过度平滑的改进方向、开源方案调研 | 规划下一步实验 |
+| [upstream/](upstream/) | BasicSR 上游原版文档（中英）与 Sphinx 配置 | 查 BasicSR 框架本身的用法 |
 
-- Auto-generated API in [*basicsr.readthedocs.io*](https://basicsr.readthedocs.io/en/latest/#)
-- Other documents about BasicSR
+其他就近放置的说明：
 
-## 中文文档
+- [`apps/denoise_demo/README.md`](../apps/denoise_demo/README.md)：Gradio 演示部署与模型注册
+- [`.devcontainer/README.md`](../.devcontainer/README.md)：Dev Container 操作手册
+- [`experiments/pretrained_models/README.md`](../experiments/pretrained_models/README.md)：预训练权重
+- `.cursor/project-context/decisions.md`：给 Agent 读的稳定决策短记（英文）
 
-我们提供了更完整的 BasicSR 中文解读文档 PDF，你所需要的内容可以在相应的章节中找到。
-
-文档的最新版可以从 [BasicSR-docs/releases](https://github.com/XPixelGroup/BasicSR-docs/releases) 下载。
-
-欢迎大家一起来帮助查找文档中的错误，完善文档。
-
-## 如何在本地自动生成 API docs
-
-```bash
-cd docs
-make html
-```
-
-## 规范
-
-rst 语法参考: https://3vshej.cn/rstSyntax/
-
-着重几个点：
-
-```rst
-- 空行
-- :file:`file`, :func:`func`, :class:`class`, :math:`\gamma`
-- **粗体**，*斜体*
-- ``Paper: title``
-- Reference: link
-```
-
-Examples:
-
-```python
-class SPyNetTOF(nn.Module):
-    """SPyNet architecture for TOF.
-
-    Note that this implementation is specifically for TOFlow. Please use :file:`spynet_arch.py` for general use.
-    They differ in the following aspects:
-
-    1. The basic modules here contain BatchNorm.
-    2. Normalization and denormalization are not done here, as they are done in TOFlow.
-
-    ``Paper: Optical Flow Estimation using a Spatial Pyramid Network``
-
-    Reference: https://github.com/Coldog2333/pytoflow
-
-    Args:
-        load_path (str): Path for pretrained SPyNet. Default: None.
-    """
-```
+新增内容时：操作流程写进 `workflow.md`，实验记录追加到 `experiments.md` 末尾，不要再新建平行文档。

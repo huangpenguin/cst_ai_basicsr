@@ -1,7 +1,8 @@
 # =============================================================================
 # TSFDAN dual-branch + peft LoRA — cylinder_phantom_mix 微调
 # 基座: experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt
-# CI: .gitlab/ci/train_tsfdan.yml（独立 job，不改 TRAIN_OPT 默认）
+# CI: .gitlab/ci/train_tsfdan.yml
+# 评测与训练完全分离：本 YAML 无在线 val；正式指标/panels 走 eval_tsfdan_lora_mix。
 # =============================================================================
 
 name: train_TSFDAN_lora_cylinder_phantom_mix_P128_bs4_i10k
@@ -33,16 +34,9 @@ datasets:
     dataset_enlarge_ratio: 1
     prefetch_mode: ~
 
-  val:
-    name: CylinderPhantomMixVal
-    type: PairedTiffImageDataset
-    dataroot_gt: /data/cst_ai/datasets/cylinder_phantom_mix/GT
-    dataroot_lq: /data/cst_ai/datasets/cylinder_phantom_mix/LQ
-    normalization: /home/huang/cst_ai/datasets/cylinder_phantom_mix/normalization.json
-    meta_info_file: /home/huang/cst_ai/datasets/cylinder_phantom_mix/val.txt
-    filename_tmpl: '{}'
-    io_backend:
-      type: disk
+# No datasets.val / no top-level val: online DDP val is skipped.
+# Use CI job eval_tsfdan_lora_mix (scripts/eval/run_eval_benchmark_tsfdan.sh) after train.
+val: ~
 
 network_g:
   type: TSFDANSwinIR
@@ -89,26 +83,6 @@ train:
     type: MSELoss
     loss_weight: 1.0
     reduction: mean
-
-val:
-  val_freq: !!float 1e4
-  save_img: false
-  max_num: 8
-  tb_image_count: 2
-  tile_size: 256
-  tile_overlap: 32
-  metrics:
-    snr:
-      type: calculate_snr
-      crop_border: 0
-    psnr:
-      type: calculate_psnr
-      crop_border: 0
-      test_y_channel: false
-    ssim:
-      type: calculate_ssim
-      crop_border: 0
-      test_y_channel: false
 
 logger:
   print_freq: 100

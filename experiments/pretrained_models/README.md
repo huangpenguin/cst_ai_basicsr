@@ -5,7 +5,7 @@
 You can use the script to download pre-trained models from Google Drive.
 
 ```python
-python scripts/download_pretrained_models.py
+python scripts/upstream/download_pretrained_models.py
 ```
 
 **[Download reproduced models and logs](https://drive.google.com/drive/folders/1XN4WXKJ53KQ0Cu0Yv-uCt8DZWq6uufaP?usp=sharing)**
@@ -26,7 +26,7 @@ In addition, we upload the training process and curves in [wandb](https://www.wa
 你可以使用以下脚本从Google Drive下载预训练模型.
 
 ```python
-python scripts/download_pretrained_models.py
+python scripts/upstream/download_pretrained_models.py
 ```
 
 **[下载复现的模型和log](https://drive.google.com/drive/folders/1XN4WXKJ53KQ0Cu0Yv-uCt8DZWq6uufaP?usp=sharing)**

@@ -47,7 +47,9 @@ runs/
 logs/
 lightning_logs/
 tensorboard/
+tb_logger/
 *.log
+.nv/
 
 # Data and model artifacts (repo-root only; do not match basicsr/data/ or basicsr/models/)
 /data/

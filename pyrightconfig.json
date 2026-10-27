@@ -4,10 +4,6 @@
     "basicsr",
     "scripts",
     "tests",
-    "test_scripts",
-    "inference",
-    "train.py",
-    "main.py",
     "setup.py"
   ],
   "exclude": [
@@ -19,8 +15,6 @@
     "results",
     "datasets",
     "assets",
-    "docs",
-    "colab",
-    "ppt"
+    "docs"
   ]
 }

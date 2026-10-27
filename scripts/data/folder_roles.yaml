@@ -1,0 +1,71 @@
+# EDIT THIS FILE — mark each scan folder as gt / lq / skip
+#
+# Rules used by scripts/data/organize_paired_tiff_by_folder.py:
+#   - one or more folders with role: gt (one GT per group directory, e.g. 5-1)
+#   - one or more folders with role: lq
+#   - skip = ignore
+#
+# Pairing is within the same parent group (5-1/5-2/5-3/5-4):
+#   LQ under 5-1 pairs with GT under 5-1 by the same original stem (data_0842).
+# Final flat names still go into one shared LQ/ and GT/:
+#   {lq_folder}_{stem_without_data_prefix}.tif
+#   e.g. 1-150kV_4uA_11fr_2x2_600pj_0842.tif
+
+dataset_name: aligned_drive
+
+# Inclusive Z-slice indices from original stems (data_0275.tif -> 275).
+# Blank reconstruction slices outside these ranges are dropped from LQ/GT.
+slice_ranges:
+  "5-1": {start: 275, end: 623}
+  "5-2": {start: 185, end: 740}
+  "5-3": {start: 185, end: 745}
+  "5-4": {start: 185, end: 745}
+
+folders:
+  # --- group 5-1 (150kV) ---
+  "1-150kV_66uA_11fr_2x2_600pj":
+    role: gt   # <<< EDIT: is this really GT?
+  "1-150kV_4uA_11fr_2x2_600pj":
+    role: lq
+  "1-150kV_7uA_11fr_2x2_600pj":
+    role: lq
+  "1-150kV_17uA_11fr_2x2_600pj":
+    role: lq
+  "1-150kV_33uA_11fr_2x2_600pj":
+    role: lq
+
+  # --- group 5-2 (150kV) ---
+  "2-150kV_66uA_11fr_2x2_600pj":
+    role: gt   # <<< EDIT: if another GT, currently unsupported; skip or tell me
+  "2-150kV_4uA_11fr_2x2_600pj":
+    role: lq
+  "2-150kV_7uA_11fr_2x2_600pj":
+    role: lq
+  "2-150kV_17uA_11fr_2x2_600pj":
+    role: lq
+  "2-150kV_33uA_11fr_2x2_600pj":
+    role: lq
+
+  # --- group 5-3 (70kV) ---
+  "3-70kV_142uA_11fr_2x2_600pj":
+    role: gt
+  "3-70kV_9uA_11fr_2x2_600pj":
+    role: lq
+  "3-70kV_18uA_11fr_2x2_600pj":
+    role: lq
+  "3-70kV_36uA_11fr_2x2_600pj":
+    role: lq
+  "3-70kV_71uA_11fr_2x2_600pj":
+    role: lq
+
+  # --- group 5-4 (40kV) ---
+  "4-40kV_250uA_11fr_2x2_600pj":
+    role: gt
+  "4-40kV_16uA_11fr_2x2_600pj":
+    role: lq  
+  "4-40kV_31uA_11fr_2x2_600pj":
+    role: lq
+  "4-40kV_63uA_11fr_2x2_600pj":
+    role: lq
+  "4-40kV_125uA_11fr_2x2_600pj":
+    role: lq

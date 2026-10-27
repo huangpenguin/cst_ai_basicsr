@@ -1,11 +1,11 @@
-# Shared GPU dev service — used by Dev Container and scripts/docker-dev.sh.
+# Shared GPU dev service — used by Dev Container and scripts/env/docker-dev.sh.
 #
 # Host env (required for compose up / devcontainer rebuild):
 #   export DATA_MOUNT_SOURCE=/mnt/data
 #   export HOME_MOUNT_SOURCE=/mnt/home    # optional; defaults to /mnt/home
 #
 # Do NOT set `user:` here — Dev Container uses remoteUser + updateRemoteUserUID.
-# CLI runs pass --user $(id -u):$(id -g) via scripts/docker-dev.sh.
+# CLI runs pass --user $(id -u):$(id -g) via scripts/env/docker-dev.sh.
 
 services:
   dev:

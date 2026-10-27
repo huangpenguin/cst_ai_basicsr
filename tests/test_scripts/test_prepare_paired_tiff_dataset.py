@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from scripts.prepare_paired_tiff_dataset import (
+from scripts.data.prepare_paired_tiff_dataset import (
     assign_splits,
     list_tiffs,
     validate_pair_names,
     validate_pairs,
-    write_metadata,
+    write_metadata_train_val,
 )
 
 
@@ -32,7 +32,7 @@ def test_validate_and_write_metadata_without_copying_images(tmp_path: Path) -> N
     splits = assign_splits(names, val_fraction=0.2, split_mode="tail", seed=0)
     pairs = validate_pairs(lq_files, gt_files, splits)
     output_root.mkdir()
-    write_metadata(
+    write_metadata_train_val(
         output_root,
         source_root,
         pairs,
@@ -40,6 +40,7 @@ def test_validate_and_write_metadata_without_copying_images(tmp_path: Path) -> N
         seed=0,
         raw_min=0.0,
         raw_max=65535.0,
+        stratify_current=False,
     )
 
     assert len((output_root / "train.txt").read_text().splitlines()) == 8

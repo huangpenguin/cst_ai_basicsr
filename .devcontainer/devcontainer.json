@@ -13,7 +13,7 @@
     "DATA_DIR": "/data",
     "PROJECT_NAME": "cst_ai"
   },
-  "postCreateCommand": "bash scripts/uv-bootstrap.sh",
+  "postCreateCommand": "bash scripts/env/uv-bootstrap.sh",
   "customizations": {
     "vscode": {
       "extensions": [

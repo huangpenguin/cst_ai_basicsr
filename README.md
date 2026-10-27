@@ -1,123 +1,75 @@
-<p align="center">
-  <img src="assets/basicsr_xpixel_logo.png" height=120>
-</p>
+# cst_ai / BasicSR：工业 CT 灰度去噪
 
-## <div align="center"><b><a href="README.md">English</a> | <a href="README_CN.md">简体中文</a></b></div>
+基于 [BasicSR](https://github.com/XPixelGroup/BasicSR) 的工业 X 光 CT 切片去噪项目。输入低剂量（低管电流）uint16 灰度 TIFF，输出接近高剂量参考的去噪结果。
 
-<div align="center">
+- **模型**：SwinIR-M（官方 grayDN noise25 初始化）配对微调；TSFDAN 双分支 + LoRA 变体。
+- **数据**：像素级已配准的同名 LQ/GT TIFF 对（battery、cylinder、phantom、ALcast）。
+- **流程**：整理数据对 → 校验划分 → GitLab CI 多卡训练 → 固定评测集出面板和指标表 → Gradio 演示。
 
-[![LICENSE](https://img.shields.io/github/license/xinntao/basicsr.svg)](https://github.com/xinntao/BasicSR/blob/master/LICENSE.txt)
-[![PyPI](https://img.shields.io/pypi/v/basicsr)](https://pypi.org/project/basicsr/)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/xinntao/BasicSR.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/xinntao/BasicSR/context:python)
-[![python lint](https://github.com/xinntao/BasicSR/actions/workflows/pylint.yml/badge.svg)](https://github.com/xinntao/BasicSR/blob/master/.github/workflows/pylint.yml)
-[![Publish-pip](https://github.com/xinntao/BasicSR/actions/workflows/publish-pip.yml/badge.svg)](https://github.com/xinntao/BasicSR/blob/master/.github/workflows/publish-pip.yml)
-[![gitee mirror](https://github.com/xinntao/BasicSR/actions/workflows/gitee-mirror.yml/badge.svg)](https://github.com/xinntao/BasicSR/blob/master/.github/workflows/gitee-mirror.yml)
+## 快速开始
 
-</div>
+```bash
+uv sync --dev
 
-<div align="center">
+# 下载预训练权重
+uv run python scripts/download/download_swinir_release.py --only noise25
+uv run python scripts/download/download_tsfdan_pretrain.py
 
-⚡[**HowTo**](#-HOWTOs) **|** 🔧[**Installation**](docs/INSTALL.md) **|** 💻[**Training Commands**](docs/TrainTest.md) **|** 🐢[**DatasetPrepare**](docs/DatasetPreparation.md) **|** 🏰[**Model Zoo**](docs/ModelZoo.md)
+# 校验并划分一个配对数据集（只写元数据）
+uv run python scripts/data/prepare_paired_tiff_dataset.py \
+  --source-root /mnt/data/cst_ai/datasets/<name> \
+  --output-root /mnt/home/huang/cst_ai/datasets/<name> \
+  --split-mode tail --val-fraction 0.1
 
-📕[**中文解读文档**](https://github.com/XPixelGroup/BasicSR-docs) **|** 📊 [**Plot scripts**](scripts/plot) **|** 📝[Introduction](docs/introduction.md) **|** <a href="https://github.com/XPixelGroup/BasicSR/tree/master/colab"><img src="https://colab.research.google.com/assets/colab-badge.svg" height="18" alt="google colab logo"></a> **|** ⏳[TODO List](https://github.com/xinntao/BasicSR/projects) **|** ❓[FAQ](docs/FAQ.md)
-</div>
+# 本地单卡调试训练（正式训练走 GitLab CI）
+uv run python basicsr/train.py \
+  -opt options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml --force_yml "num_gpu=1"
 
-🚀 We add [BasicSR-Examples](https://github.com/xinntao/BasicSR-examples), which provides guidance and templates of using BasicSR as a python package. 🚀 <br>
-📢 **技术交流QQ群**：**320960100** &emsp; 入群答案：**互帮互助共同进步** <br>
-🧭 [入群二维码](#-contact) (QQ、微信) &emsp;&emsp; [入群指南 (腾讯文档)](https://docs.qq.com/doc/DYXBSUmxOT0xBZ05u) <br>
+# 推理并生成 LQ | PreFT | FT | GT 对比面板
+uv run python scripts/infer/infer_swinir_graydn_tiff.py --model <ckpt> \
+  --baseline-model experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth \
+  --lq-dir <LQ> --gt-dir <GT> --output-dir <out>
 
----
-
-BasicSR (**Basic** **S**uper **R**estoration) is an open-source **image and video restoration** toolbox based on PyTorch, such as super-resolution, denoise, deblurring, JPEG artifacts removal, *etc*.<br>
-BasicSR (**Basic** **S**uper **R**estoration) 是一个基于 PyTorch 的开源 图像视频复原工具箱, 比如 超分辨率, 去噪, 去模糊, 去 JPEG 压缩噪声等.
-
-🚩 **New Features/Updates**
-
-- ✅ July 26, 2022. Add plot scripts 📊[Plot](scripts/plot).
-- ✅ May 9, 2022. BasicSR joins [XPixel](http://xpixel.group/).
-- ✅ Oct 5, 2021. Add **ECBSR training and testing** codes: [ECBSR](https://github.com/xindongzhang/ECBSR).
-  > ACMMM21: Edge-oriented Convolution Block for Real-time Super Resolution on Mobile Devices
-- ✅ Sep 2, 2021. Add **SwinIR training and testing** codes: [SwinIR](https://github.com/JingyunLiang/SwinIR) by [Jingyun Liang](https://github.com/JingyunLiang). More details are in [HOWTOs.md](docs/HOWTOs.md#how-to-train-swinir-sr)
-- ✅ Aug 5, 2021. Add NIQE, which produces the same results as MATLAB (both are 5.7296 for tests/data/baboon.png).
-- ✅ July 31, 2021. Add **bi-directional video super-resolution** codes: [**BasicVSR** and IconVSR](https://arxiv.org/abs/2012.02181).
-  > CVPR21: BasicVSR: The Search for Essential Components in Video Super-Resolution and Beyond
-- **[More](docs/history_updates.md)**
-
----
-
-If BasicSR helps your research or work, please help to ⭐ this repo or recommend it to your friends. Thanks😊 <br>
-Other recommended projects:<br>
-▶️ [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN): A practical algorithm for general image restoration<br>
-▶️ [GFPGAN](https://github.com/TencentARC/GFPGAN): A practical algorithm for real-world face restoration <br>
-▶️ [facexlib](https://github.com/xinntao/facexlib): A collection that provides useful face-relation functions.<br>
-▶️ [HandyView](https://github.com/xinntao/HandyView): A PyQt5-based image viewer that is handy for view and comparison. <br>
-▶️ [HandyFigure](https://github.com/xinntao/HandyFigure): Open source of paper figures <br>
-<sub>([ESRGAN](https://github.com/xinntao/ESRGAN), [EDVR](https://github.com/xinntao/EDVR), [DNI](https://github.com/xinntao/DNI), [SFTGAN](https://github.com/xinntao/SFTGAN))</sub>
-<sub>([HandyCrawler](https://github.com/xinntao/HandyCrawler), [HandyWriting](https://github.com/xinntao/HandyWriting))</sub>
-
----
-
-## ⚡ HOWTOs
-
-We provide simple pipelines to train/test/inference models for a quick start.
-These pipelines/commands cannot cover all the cases and more details are in the following sections.
-
-| GAN                  |                                                |                                                        |          |                                                |                                                        |
-| :------------------- | :--------------------------------------------: | :----------------------------------------------------: | :------- | :--------------------------------------------: | :----------------------------------------------------: |
-| StyleGAN2            | [Train](docs/HOWTOs.md#How-to-train-StyleGAN2) | [Inference](docs/HOWTOs.md#How-to-inference-StyleGAN2) |          |                                                |                                                        |
-| **Face Restoration** |                                                |                                                        |          |                                                |                                                        |
-| DFDNet               |                       -                        |  [Inference](docs/HOWTOs.md#How-to-inference-DFDNet)   |          |                                                |                                                        |
-| **Super Resolution** |                                                |                                                        |          |                                                |                                                        |
-| ESRGAN               |                     *TODO*                     |                         *TODO*                         | SRGAN    |                     *TODO*                     |                         *TODO*                         |
-| EDSR                 |                     *TODO*                     |                         *TODO*                         | SRResNet |                     *TODO*                     |                         *TODO*                         |
-| RCAN                 |                     *TODO*                     |                         *TODO*                         | SwinIR   | [Train](docs/HOWTOs.md#how-to-train-swinir-sr) | [Inference](docs/HOWTOs.md#how-to-inference-swinir-sr) |
-| EDVR                 |                     *TODO*                     |                         *TODO*                         | DUF      |                       -                        |                         *TODO*                         |
-| BasicVSR             |                     *TODO*                     |                         *TODO*                         | TOF      |                       -                        |                         *TODO*                         |
-| **Deblurring**       |                                                |                                                        |          |                                                |                                                        |
-| DeblurGANv2          |                       -                        |                         *TODO*                         |          |                                                |                                                        |
-| **Denoise**          |                                                |                                                        |          |                                                |                                                        |
-| RIDNet               |                       -                        |                         *TODO*                         | CBDNet   |                       -                        |                         *TODO*                         |
-
-## ✨ **Projects that use BasicSR**
-
-- [**Real-ESRGAN**](https://github.com/xinntao/Real-ESRGAN): A practical algorithm for general image restoration
-- [**GFPGAN**](https://github.com/TencentARC/GFPGAN): A practical algorithm for real-world face restoration
-
-If you use `BasicSR` in your open-source projects, welcome to contact me (by [email](#-contact) or opening an issue/pull request). I will add your projects to the above list 😊
-
-## 📜 License and Acknowledgement
-
-This project is released under the [Apache 2.0 license](LICENSE.txt).<br>
-More details about **license** and **acknowledgement** are in [LICENSE](LICENSE/README.md).
-
-## 🌏 Citations
-
-If BasicSR helps your research or work, please cite BasicSR.<br>
-The following is a BibTeX reference. The BibTeX entry requires the `url` LaTeX package.
-
-``` latex
-@misc{basicsr,
-  author =       {Xintao Wang and Liangbin Xie and Ke Yu and Kelvin C.K. Chan and Chen Change Loy and Chao Dong},
-  title =        {{BasicSR}: Open Source Image and Video Restoration Toolbox},
-  howpublished = {\url{https://github.com/XPixelGroup/BasicSR}},
-  year =         {2022}
-}
+# 去噪演示（0.0.0.0:7860）
+uv run python apps/denoise_demo/app.py
 ```
 
-> Xintao Wang, Liangbin Xie, Ke Yu, Kelvin C.K. Chan, Chen Change Loy and Chao Dong. BasicSR: Open Source Image and Video Restoration Toolbox. <https://github.com/xinntao/BasicSR>, 2022.
+## 目录结构
 
-## 📧 Contact
+```text
+apps/denoise_demo/   Gradio 去噪演示
+basicsr/             训练框架（含 PairedTiffImageDataset、TSFDANSwinIR 等项目扩展）
+options/train/       训练 YAML（项目配置在 SwinIR/ 下）
+scripts/
+  data/              数据整理、校验划分、混合集构建、folder_roles*.yaml
+  infer/             TIFF 推理（SwinIR / TSFDAN）
+  eval/              固定评测集、批量推理、填表、传统 CV 基线、面板增强
+  download/          预训练权重下载
+  ci/                CI 存储准备、续训、TensorBoard
+  env/               镜像构建、uv bootstrap、docker-dev
+  upstream/          BasicSR 上游原有脚本
+tests/               pytest（tests/manual/ 为上游手动脚本）
+docs/                项目文档；docs/upstream/ 为 BasicSR 原版文档
+```
 
-If you have any questions, please email `xintao.alpha@gmail.com`, `xintao.wang@outlook.com`.
+`datasets/`、`experiments/`、`results/`、`tb_logger/` 为本地运行产物目录，已 gitignore。
 
-<br>
+## 配置
 
-- **QQ群**: 扫描左边二维码 或者 搜索QQ群号: 320960100   入群答案：互帮互助共同进步
-- **微信群**: 我们的一群已经满500人啦，二群也超过200人了；进群可以添加 Liangbin 的个人微信 (右边二维码)，他会在空闲的时候拉大家入群~
+| 位置 | 作用 |
+|------|------|
+| `options/train/SwinIR/*.yml` | 训练的全部语义：数据路径、`name`、`num_gpu`、超参、`experiments_root` |
+| `.gitlab/ci/train.yml` 中 `TRAIN_OPT` | CI 默认训练哪个 YAML |
+| `.gitlab/ci/train_tsfdan.yml` 中 `TSFDAN_TRAIN_OPT` | TSFDAN 训练 YAML |
+| `apps/denoise_demo/models.yaml` | Demo 可选的模型列表 |
+| `DATA_DIR`、`CST_STORAGE_USER`、`DATA_MOUNT_SOURCE`、`HOME_MOUNT_SOURCE` | 数据挂载与存储用户，见 [docs/infrastructure.md](docs/infrastructure.md) |
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/17445847/134879983-6f2d663b-16e7-49f2-97e1-7c53c8a5f71a.jpg"  height="300">  &emsp;
-  <img src="https://user-images.githubusercontent.com/17445847/139572512-8e192aac-00fa-432b-ac8e-a33026b019df.png"  height="300">
-</p>
+## 文档
 
-![visitors](https://visitor-badge.glitch.me/badge?page_id=XPixelGroup/BasicSR) (start from 2022-11-06)
+- [docs/workflow.md](docs/workflow.md)：数据准备、训练、评测、演示的完整操作流程
+- [docs/experiments.md](docs/experiments.md)：实验记录与结果
+- [docs/infrastructure.md](docs/infrastructure.md)：Docker / Dev Container / GitLab Runner / 代码质量
+- [docs/research-notes.md](docs/research-notes.md)：数据特性、改进方向与开源方案调研
+- [docs/upstream/](docs/upstream/)：BasicSR 上游 README 与文档
+
+本项目沿用 BasicSR 的 [Apache 2.0 许可](LICENSE.txt)，引用信息见 `CITATION.cff`。
