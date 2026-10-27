@@ -172,9 +172,6 @@ variables:
       if [[ -n "${BASICSR_TB_LOGGER_ROOT:-}" && -d "${BASICSR_TB_LOGGER_ROOT}" ]]; then
         echo "TensorBoard events on NFS: ${BASICSR_TB_LOGGER_ROOT}"
       fi
-      # #region agent log
-      echo "debug_after_script_ok hypothesisId=B" >> /home/huang/code/cst_ai/BasicSR/.cursor/debug-052c56.log || true
-      # #endregion
   artifacts:
     when: always
     expire_in: 14 days
