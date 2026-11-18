@@ -1,7 +1,7 @@
 # =============================================================================
 # SwinIR 灰度去噪 — cylinder_260520_gt90ua + aligned_drive 混合集
 # 数据：/data/cst_ai/datasets/cylinder_phantom_mix（hardlink，前缀 cyl__/ph__）
-# CI：将 TRAIN_OPT 指到本文件后手动启动 train_paired_tiff_swinir。
+# 在 gpu01 上：uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <本文件> --launcher pytorch
 # =============================================================================
 
 name: train_SwinIR_grayDN_cylinder_phantom_mix_noise25_P128W8_bs4_i30k

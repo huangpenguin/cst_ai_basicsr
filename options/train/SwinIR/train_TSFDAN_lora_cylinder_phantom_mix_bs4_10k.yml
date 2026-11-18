@@ -1,8 +1,8 @@
 # =============================================================================
 # TSFDAN dual-branch + peft LoRA — cylinder_phantom_mix 微调
 # 基座: experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt
-# CI: .gitlab/ci/train_tsfdan.yml
-# 评测与训练完全分离：本 YAML 无在线 val；正式指标/panels 走 eval_tsfdan_lora_mix。
+# 评测与训练完全分离：本 YAML 无在线 val；训练结束后单独评测。
+# 启动：uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <本文件> --launcher pytorch
 # =============================================================================
 
 name: train_TSFDAN_lora_cylinder_phantom_mix_P128_bs4_i10k

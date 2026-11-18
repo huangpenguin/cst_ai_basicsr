@@ -15,24 +15,23 @@ Runner mounts (all users, no per-user config):
 volumes = ["/cache", "/mnt/data:/data:ro", "/mnt/home:/home:rw"]
 ```
 
-- `/cache` on the runner is **not** used for datasets or training outputs (see `scripts/ci/ci_storage.py`).
-- GitLab `cache:` in CI only reuses `.venv/`, `.cache/uv/`, and pretrained weights between jobs.
+- GitLab `cache:` for quality jobs only reuses `.venv/` and `.cache/uv/` on GitLab.com shared runners.
+- Training outputs live on the host at `/mnt/home/<user>/cst_ai/`, started directly from `options/train/` YAML. CI does not launch training (removed 2026-11-09).
 
 Env vars: `DATA_DIR`, `PROJECT_NAME`, `WORK_DIR`, `CST_STORAGE_USER`, optional `DATASET_DIR`, `OUTPUT_DIR`.
 
-CI training outputs (container `/home/<CST_STORAGE_USER>/cst_ai/`, host `/mnt/home/<CST_STORAGE_USER>/cst_ai/`).
-Default `CST_STORAGE_USER=huang` in `.gitlab/ci/train.yml` (not `GITLAB_USER_LOGIN`).
+Training writes to host `/mnt/home/<CST_STORAGE_USER>/cst_ai/` (container path `/home/<CST_STORAGE_USER>/cst_ai/` when using the Dev Container). `CST_STORAGE_USER` defaults to `huang`, not `GITLAB_USER_LOGIN`.
 
 ## Repo location / multi-host (2026-09)
 
-- Single working copy on NFS: `/mnt/home/huang/code/cst_ai/BasicSR` (gpu01 `/home/huang/code/cst_ai/BasicSR` is a symlink to it). gpu01 = CI training; a second GPU host runs the Gradio demo from the same path.
+- Single working copy on NFS: `/mnt/home/huang/code/cst_ai/BasicSR` (gpu01 `/home/huang/code/cst_ai/BasicSR` is a symlink to it). gpu01 runs training directly; a second GPU host runs the Gradio demo from the same path.
 - venv is per-host on local disk via `UV_PROJECT_ENVIRONMENT=$HOME/.local/share/venvs/basicsr` (zsh `chpwd` hook scoped to the repo); never a `.venv` on NFS.
 - Remotes: `gitlab` (primary), `github` (private mirror `huangpenguin/cst_ai_basicsr`), `all` (dual push), `upstream` (XPixelGroup, fetch only). Git write ops on one host at a time.
 - Details: `docs/infrastructure.md` §2.4.
 
 ## Unified GPU image (2026-07)
 
-Dev Container and GitLab CI use the **same** image tag `basicsr-mlops-gpu:2.6.0-cu124` from `Dockerfile` (base `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel`).
+Dev Container uses image tag `basicsr-mlops-gpu:2.6.0-cu124` from `Dockerfile` (base `pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel`). GitLab CI only runs Ruff/Pyright on `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`.
 
 - Image layer: OS tools + `uv` only (granularity 1).
 - Python deps: `scripts/env/uv-bootstrap.sh` → `.venv` (same as devcontainer `postCreateCommand`).
@@ -48,18 +47,18 @@ Devcontainer / docker-dev host exports: `DATA_MOUNT_SOURCE=/mnt/data`, `HOME_MOU
 - No rotation, resize, crop, resampling, or image copy is allowed in the preparation step.
 - CI reads source images from `/data/cst_ai/datasets/<name>` and metadata from `/home/<user>/cst_ai/datasets/<name>`.
 - Formal training checkpoints live in a **stable** path from YAML `path.experiments_root` (e.g. `/home/<user>/cst_ai/experiments/aligned_drive/`) so `--auto_resume` survives new pipelines; TB/run markers still use `ci_outputs/<pipeline_id>/`.
-- Training semantics (name, paths, `num_gpu`, port, timeout, hyperparams) live in the train YAML; CI only sets `TRAIN_OPT` and launches. `scripts/ci/ci_emit_opt_env.py` exports env vars from that YAML.
+- Training semantics (name, paths, `num_gpu`, port, timeout, hyperparams) live in the train YAML. Launch with `uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <yaml> --launcher pytorch` on gpu01. CI does not select or start training.
 - `scripts/ci/ci_seed_resume.py --opt <yaml>` copies the newest `*.state` + `net_g_*.pth` from prior `ci_outputs` into the stable experiments root before train.
-- Switch datasets / experiment identity by editing the YAML (paths + `name`); run `train_paired_tiff_swinir_debug` before `train_paired_tiff_swinir`.
+- Switch datasets / experiment identity by editing the YAML (paths + `name`), then run `uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <yaml> --launcher pytorch` on gpu01.
 - Current dataset (phantom): `aligned_drive` (Z-filtered via `scripts/data/folder_roles.yaml` `slice_ranges`: 5-1 275–623, 5-2 185–740, 5-3/5-4 185–745). Note: `val.txt` is almost entirely group 5-4 because `split_mode=tail` sorts `4-…` filenames last.
 - Cylinder retrain dataset: `cylinder_260520_gt90ua` (GT=`1-110kV_90uA`, skip `0-300kV_100uA`, slices 130–750, hardlink flat LQ/GT). Meta + `SPLIT_RECORD.md` under `/mnt/home/huang/cst_ai/datasets/cylinder_260520_gt90ua/`. Eval-only holdout: `cylinder_260527_eval_gt60ua` (not for training).
 - Training config (round 1 phantom): `options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml`.
 - Training config (round 2 phantom): `options/train/SwinIR/train_SwinIR_grayDN_paired_tiff_bs8_30k.yml`.
 - Training config (cylinder GT90µA): `options/train/SwinIR/train_SwinIR_grayDN_cylinder_gt90ua_bs8_30k.yml` — `batch_size_per_gpu: 4` (bs=8 OOM'd ~31.65GiB/GPU). Do not overwrite `aligned_drive` or `archive/cylinderblock_*`.
 - Mix dataset: `cylinder_phantom_mix` — hardlink merge of `cylinder_260520_gt90ua` (`cyl__`) + `aligned_drive` (`ph__`); stratified domain×µA train/val; meta under `/mnt/home/huang/cst_ai/datasets/cylinder_phantom_mix/`. Built by `scripts/data/build_cylinder_phantom_mix.py`.
-- Training config (mix): `options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30k.yml` — previous CI `TRAIN_OPT`; kept for reuse.
-- ALcast dataset: `alcast_150kv_gt66ma` — raw `/mnt/data/cst_ai/datasets/alcast_150kv_raw/` (Drive folder `1U1yvwC1AQoa2AzRGtPDf5rk8mJZ-rP8W`); flat hardlink `/mnt/data/cst_ai/datasets/alcast_150kv_gt66ma/`; meta `/mnt/home/huang/cst_ai/datasets/alcast_150kv_gt66ma/`. GT=`1_ALcast_150kV66mA_data`, LQ=`4/7/17/33mA` (roles: `scripts/data/folder_roles_alcast_150kv_gt66ma.yaml`). User QC slice range **70–820** (inclusive); blanks outside excluded. Stratified holdout: **8 test + 8 val per current** (32 each); remainder train. Train YAML has **`val: ~` (no online DDP val)** — same pattern as TSFDAN; avoids train-CI blocking. `val.txt` kept on disk unused during train; **formal eval after train**: ALcast `test.txt` **plus prior benches** (`aligned_drive` / cylinder / mix). YAML: `options/train/SwinIR/train_SwinIR_grayDN_alcast_gt66ma_bs4_30k.yml` — CI `TRAIN_OPT` points here. Manual CI: `train_paired_tiff_swinir_debug` → `train_paired_tiff_swinir`.
-- TSFDAN dual-branch + LoRA mix FT: arch `TSFDANSwinIR` / model `TSFDANSwinIRModel`; pretrain `experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt` (Wasserdawn/TSFDAN; not SwinIR-M); YAML `options/train/SwinIR/train_TSFDAN_lora_cylinder_phantom_mix_bs4_10k.yml` with **`val: ~` (no online DDP val)**; experiments_root `/home/huang/cst_ai/experiments/cylinder_phantom_mix_tsfdan_lora`. CI: `.gitlab/ci/train_tsfdan.yml` manual jobs `train_tsfdan_lora_mix_debug` → `train_tsfdan_lora_mix` → **`eval_tsfdan_lora_mix` (sole formal metrics/panels)** — does not change default `TRAIN_OPT`. Infer: `scripts/infer/infer_tsfdan_tiff.py`, `scripts/eval/run_eval_benchmark_tsfdan.sh`; tag `tsfdan_lora_mix`.
+- Training config (mix): `options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30k.yml` — former CI default; kept for reuse. Run it directly with `basicsr/train.py -opt`.
+- ALcast dataset: `alcast_150kv_gt66ma` — raw `/mnt/data/cst_ai/datasets/alcast_150kv_raw/` (Drive folder `1U1yvwC1AQoa2AzRGtPDf5rk8mJZ-rP8W`); flat hardlink `/mnt/data/cst_ai/datasets/alcast_150kv_gt66ma/`; meta `/mnt/home/huang/cst_ai/datasets/alcast_150kv_gt66ma/`. GT=`1_ALcast_150kV66mA_data`, LQ=`4/7/17/33mA` (roles: `scripts/data/folder_roles_alcast_150kv_gt66ma.yaml`). User QC slice range **70–820** (inclusive); blanks outside excluded. Stratified holdout: **8 test + 8 val per current** (32 each); remainder train. Train YAML has **`val: ~` (no online DDP val)** — same pattern as TSFDAN; avoids train-CI blocking. `val.txt` kept on disk unused during train; **formal eval after train**: ALcast `test.txt` **plus prior benches** (`aligned_drive` / cylinder / mix). YAML: `options/train/SwinIR/train_SwinIR_grayDN_alcast_gt66ma_bs4_30k.yml`. Train on gpu01 with `basicsr/train.py -opt` that file. The old manual CI jobs `train_paired_tiff_swinir_debug` → `train_paired_tiff_swinir` were removed on 2026-11-09.
+- TSFDAN dual-branch + LoRA mix FT: arch `TSFDANSwinIR` / model `TSFDANSwinIRModel`; pretrain `experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt` (Wasserdawn/TSFDAN; not SwinIR-M); YAML `options/train/SwinIR/train_TSFDAN_lora_cylinder_phantom_mix_bs4_10k.yml` with **`val: ~` (no online DDP val)**; experiments_root `/home/huang/cst_ai/experiments/cylinder_phantom_mix_tsfdan_lora`. Train with `basicsr/train.py -opt` that YAML; metrics come from a separate eval run. Infer: `scripts/infer/infer_tsfdan_tiff.py`, `scripts/eval/run_eval_benchmark_tsfdan.sh`; tag `tsfdan_lora_mix`.
 - Fixed eval benchmark v1: `/mnt/home/huang/cst_ai/outputs/eval_benchmark_v1/` (kept).
 - Fixed eval benchmark v2: `/mnt/home/huang/cst_ai/outputs/eval_benchmark_v2/` — leakage-first; 260527 stratified by µA; 260520 from safe val pool only. Build via `scripts/eval/build_eval_benchmark.py` (single entrypoint; `--output-root`).
 - Eval infer / table: `scripts/eval/run_eval_benchmark_model.sh`, `scripts/eval/fill_eval_benchmark_table.py --root … --preset v1|v2` (no version-suffixed duplicates).

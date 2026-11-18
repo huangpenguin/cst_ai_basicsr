@@ -104,7 +104,7 @@ uv run python scripts/data/prepare_paired_tiff_dataset.py \
 
 ### 4.1 配置约定
 
-- 训练语义（`name`、路径、`num_gpu`、端口、超参）全部写在 YAML 里；CI 只通过 `TRAIN_OPT` 选 YAML 并启动。
+- 训练语义（`name`、路径、`num_gpu`、端口、超参）全部写在 YAML 里。在 gpu01 上直接执行 `basicsr/train.py -opt <yaml>`，不经过 GitLab CI。
 - `path.experiments_root` 指向稳定路径（如 `/home/huang/cst_ai/experiments/<dataset>/`），这样 `--auto_resume` 能跨 pipeline 生效。
 - 默认像素损失为 **MSE**（直接优化 PSNR/SNR 相关的误差功率）。做对照只改一处：`--force_yml "train:pixel_opt:type=L1Loss"` 或 `CharbonnierLoss`。
 - 归一化用固定物理范围（`normalization.json`，通常 uint16 0–65535 → [0,1]），**不要**用逐图百分位拉伸做定量比较。
@@ -120,29 +120,31 @@ uv run python basicsr/train.py \
   --force_yml "num_gpu=1"
 ```
 
-### 4.3 GitLab CI（正式训练）
+### 4.3 正式训练
 
-| Job（均为手动） | 作用 |
-|-----------------|------|
-| `gpu_smoke` | 验证 GPU / 数据挂载 / 依赖 |
-| `train_paired_tiff_swinir_debug` → `train_paired_tiff_swinir` | SwinIR-M；YAML 由 `.gitlab/ci/train.yml` 的 `TRAIN_OPT` 指定（当前为 ALcast） |
-| `train_tsfdan_lora_mix_debug` → `train_tsfdan_lora_mix` → `eval_tsfdan_lora_mix` | TSFDAN+LoRA（`.gitlab/ci/train_tsfdan.yml`，不影响默认 `TRAIN_OPT`） |
+在 gpu01 上进入仓库后直接启动。以下示例为四卡 DDP；`--nproc_per_node` 需与 YAML 的 `num_gpu` 一致。单卡调试沿用上一节：
 
-CI 流程：`scripts/ci/ci_emit_opt_env.py` 把 YAML 转成环境变量 → `scripts/ci/ci_storage.py prepare` 准备输出目录 → `scripts/ci/ci_seed_resume.py` 把以往 `ci_outputs` 中最新的 `*.state` + `net_g_*.pth` 复制到稳定实验目录 → `torchrun basicsr/train.py --auto_resume`。
+```bash
+uv run python -m torch.distributed.run --standalone --nproc_per_node=4 \
+  basicsr/train.py -opt options/train/SwinIR/train_SwinIR_grayDN_alcast_gt66ma_bs4_30k.yml \
+  --launcher pytorch
+```
+
+TSFDAN+LoRA 使用 `options/train/SwinIR/train_TSFDAN_lora_cylinder_phantom_mix_bs4_10k.yml`。评测在训练结束后单独跑，不放进 CI。GitLab 只保留 Ruff / Pyright。
 
 ### 4.4 断点续训
 
 `training_states/` 下有 `.state` 即可续训：
 
 ```bash
-uv run python basicsr/train.py -opt <yaml> --auto_resume
+uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <yaml> --launcher pytorch --auto_resume
 ```
 
 TensorBoard 曲线从约 N 步开始而不是 0，通常就是续训；如果本意是从头训，需要清掉同名 `tb_logger/<exp_name>/` 中的旧 event 文件。
 
 ### 4.5 TensorBoard
 
-- CI 训练 job 自动在 6006 端口启动 TensorBoard（`scripts/ci/ci_tensorboard.sh`，logdir 为本次 run 的 `tb_logger/`），`after_script` 自动停止。runner 需 `network_mode = "host"`。
+- 需要看曲线时自己启动 TensorBoard，logdir 为本次实验的 `tb_logger/`。`scripts/ci/ci_tensorboard.sh` 仍可手动调用。
 - Mac 查看：`ssh -L 6006:localhost:6006 <user>@<gpu-host>`，然后打开 `http://localhost:6006`。
 - 训练结束后重新查看：
 

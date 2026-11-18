@@ -1,7 +1,7 @@
 # =============================================================================
 # SwinIR 灰度去噪 — ALcast 150kV（GT=66mA，LQ=4/7/17/33mA）
 # 数据：/data/cst_ai/datasets/alcast_150kv_gt66ma（hardlink）
-# CI：将 TRAIN_OPT 指到本文件后手动启动 train_paired_tiff_swinir。
+# 在 gpu01 上：uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <本文件> --launcher pytorch
 # 评测与训练分离：无在线 DDP val；正式指标走训后 test（ALcast holdout + 旧 bench）。
 # =============================================================================
 

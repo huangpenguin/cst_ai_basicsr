@@ -1,17 +1,17 @@
 # =============================================================================
 # SwinIR 灰度去噪（已对齐 uint16 TIFF 对）— 第二轮实验
 # 基于 train_SwinIR_grayDN_paired_tiff.yml：更大 batch、更长训练、更密验证/存盘。
-# CI：将 .gitlab/ci/train.yml 的 TRAIN_OPT 指到本文件后启动。
+# 产出：{path.experiments_root}/{name}/
+# 在 gpu01 上：uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <本文件> --launcher pytorch
 # =============================================================================
 
 # 新实验名（勿与第一轮相同，否则 --auto_resume 会接着旧 15000）。
-# 产出：{path.experiments_root}/{name}/
 name: train_SwinIR_grayDN_paired_tiff_noise25_P128W8_bs8_i30k
 
 model_type: SwinIRModel
 scale: 1
 
-# 进程/GPU 数。CI 用此值作为 torch.distributed.run --nproc_per_node。
+# 进程/GPU 数，作为 torch.distributed.run --nproc_per_node。
 num_gpu: 4
 
 manual_seed: 0

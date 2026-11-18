@@ -1,7 +1,7 @@
 # =============================================================================
 # SwinIR 灰度去噪 — Cylinderblock 260520（GT=90µA，排除 300kV）
 # 数据：/data/cst_ai/datasets/cylinder_260520_gt90ua（硬链接，不覆盖 aligned_drive）
-# CI：将 TRAIN_OPT 指到本文件后手动启动 train_paired_tiff_swinir。
+# 在 gpu01 上：uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <本文件> --launcher pytorch
 # =============================================================================
 
 # 新实验名；勿与 archive 旧 cylinder 或 aligned_drive 实验同名。

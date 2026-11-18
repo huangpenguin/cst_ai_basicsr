@@ -1,10 +1,10 @@
-# 基础设施：镜像、开发容器、GPU Runner 与代码质量
+# 基础设施：镜像、开发容器与代码质量
 
-本仓库由 `init-ai` 模板的 core / python-quality / ci-quality / mlops-gpu 四个 pack 注入了 Cursor 规则、Ruff/Pyright、GitLab CI 和 GPU Docker 环境。本文合并了原先分散的 Docker、Dev Container、GPU Runner、数据挂载与 pack 说明。
+本仓库由 `init-ai` 模板的 core / python-quality / ci-quality / mlops-gpu 四个 pack 注入了 Cursor 规则、Ruff/Pyright、GitLab 代码检查和 GPU Docker 环境。本文合并了原先分散的 Docker、Dev Container、数据挂载与 pack 说明。训练在 gpu01 上直接启动。
 
 ## 1. 统一 GPU 镜像
 
-Dev Container 与 GitLab CI 使用**同一个**镜像 `basicsr-mlops-gpu:2.6.0-cu124`，由根目录 `Dockerfile` 构建：
+Dev Container 使用镜像 `basicsr-mlops-gpu:2.6.0-cu124`，由根目录 `Dockerfile` 构建。GitLab 代码检查使用 `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`，不使用这套 GPU 镜像：
 
 | 层 | 内容 |
 |----|------|
@@ -12,7 +12,7 @@ Dev Container 与 GitLab CI 使用**同一个**镜像 `basicsr-mlops-gpu:2.6.0-c
 | Python 环境 | `scripts/env/uv-bootstrap.sh` → 仓库根 `.venv`（容器内 `/workspace/.venv`，已 gitignore） |
 | 依赖声明 | `pyproject.toml` + `uv.lock`（torch 走 cu124 index）；`requirements.txt` 仅供 `setup.py` editable 安装使用 |
 
-gpu01 上首次（或改 Dockerfile 后）构建：`bash scripts/env/build_mlops_image.sh`；CI 使用 `pull_policy: if-not-present`。
+gpu01 上首次（或改 Dockerfile 后）构建：`bash scripts/env/build_mlops_image.sh`。
 
 `uv-bootstrap.sh` 行为：
 
@@ -131,49 +131,15 @@ compose 默认没有 `ports:`，需要从浏览器访问 Gradio（7860）或 Ten
   ```
 
   需要 NVIDIA driver ≥ 550（cu124 wheel）；启动日志里各 preset 的 ckpt 应为 `exists: true`。
-- **训练**仍然通过 gpu01 上的 GitLab CI 跑，CI 自己 clone 代码，跟工作副本放在哪里无关。训练产物、数据集元数据、评测输出都在 `/mnt/home/huang/cst_ai/`。
+- **训练**在 gpu01 上按 `options/train/` 里的 YAML 直接启动，不经过 GitLab。训练产物、数据集元数据、评测输出都在 `/mnt/home/huang/cst_ai/`。
 - **Git remotes**：`gitlab`（主仓库，`master` 跟踪 `gitlab/master`）、`github`（私有镜像 `huangpenguin/cst_ai_basicsr`）、`all`（一次 push 同时推两边：`git push all master`）、`upstream`（XPixelGroup/BasicSR，只 fetch）。
 - **同一时间只在一台机器上做 git 写操作**（commit / checkout / rebase），否则 NFS 上的 `.git/index.lock` 会冲突。
 
-## 3. GitLab CI 与 GPU Runner
+## 3. GitLab CI
 
-### 3.1 Pipeline 结构
+`.gitlab-ci.yml` 只保留代码检查，job 在 `.gitlab/ci/quality.yml`：`uv run ruff check .`、`ruff format --check .`、`pyright`。pipeline 在 MR、`main`、`master` 上触发，跑在 GitLab.com 公共 Runner 上，不占用 gpu01，也不访问 `/mnt`。
 
-`.gitlab-ci.yml` 只做编排，job 拆在 `.gitlab/ci/`：
-
-| 文件 | 内容 |
-|------|------|
-| `quality.yml` | `uv run ruff check .`、`ruff format --check .`、`pyright` |
-| `train.yml` | `gpu_smoke`、SwinIR-M debug/正式训练 |
-| `train_tsfdan.yml` | TSFDAN+LoRA 训练与评测 |
-
-pipeline 在 MR、`main`、`master` 上触发；训练 job 均为手动 Play。GitLab `cache:` 只复用 `.venv/`、`.cache/uv/` 和预训练权重。
-
-### 3.2 Runner 要求
-
-训练 job 跑在 gpu01 上的项目专用 runner：
-
-- tags：`linux`, `docker`, `main_gpu`, `storage_huang`；关闭 Run untagged jobs。
-- `executor = "docker"`，`[runners.docker]` 中设置：
-  - `gpus = "all"`
-  - `user = "1003:1003"`（`id -u huang` / `id -g huang`）：NFS 是 root_squash，容器以 root 运行会写不进 `/home/huang/cst_ai`（症状：`ci_storage.py` 报 `not writable`）。
-  - `volumes = ["/cache", "/mnt/data:/data:ro", "/mnt/home:/home:rw"]`
-  - `network_mode = "host"`：CI 内自动启动的 TensorBoard 才能通过 SSH 转发访问。
-- **不要**修改现有公共 `main_gpu` runner 的 `user=`，而是新增第二个 `[[runners]]`。
-
-注册步骤：
-
-1. GitLab → Project → Settings → CI/CD → Runners → New project runner（填上述 tags）。
-2. 在 gpu01 运行 `bash scripts/env/setup_gpu_data_layout.sh`，按输出执行 register 并粘贴 `config.toml` 片段。
-3. `sudo gitlab-runner verify && sudo gitlab-runner restart`。
-4. 验证写权限：
-
-```bash
-docker run --rm --user 1003:1003 -v /mnt/home:/home:rw alpine \
-  touch /home/huang/cst_ai/ci_outputs/.runner_write_test
-```
-
-只跑 smoke、不写个人 home 时，可以用只带 `main_gpu` tag 的公共 runner。
+2026-11-09 起不再用 GitLab Runner 启动训练。原先的 `.gitlab/ci/train.yml`、`train_tsfdan.yml` 和 gpu01 上为这些 job 准备的 `storage_huang` runner 缓存已退出训练流程。多卡训练在 gpu01 上执行 `uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <yaml> --launcher pytorch`。
 
 ## 4. 代码质量
 

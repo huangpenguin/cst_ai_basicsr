@@ -31,7 +31,7 @@ Docker **不是**再装一套操作系统给你点网页。它是：把「CUDA +
 
 | 概念 | 白话 |
 |------|------|
-| 镜像 (image) | 只读模板。本仓库是 `basicsr-mlops-gpu:2.6.0-cu124`，和 GitLab CI / Dev Container 同一套。 |
+| 镜像 (image) | 只读模板。本仓库是 `basicsr-mlops-gpu:2.6.0-cu124`，和 Dev Container 同一套。 |
 | 容器 (container) | 用镜像跑起来的一个进程隔离环境。代码通过 volume 挂进容器（compose 里是 `.:/workspace`）。 |
 | 端口映射 `-p 7860:7860` | 容器内 Gradio 听 7860；宿主机同一端口转进去，浏览器才能访问。 |
 | GPU | compose 里 `gpus: all`，容器才能用 NVIDIA 卡。 |

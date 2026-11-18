@@ -1,6 +1,6 @@
 # Dev Container 工作流
 
-IDE 用 **Dev Container** 进环境；底座由 [`docker-compose.yml`](../docker-compose.yml) 构建（**与 GitLab CI 同一镜像** `basicsr-mlops-gpu:2.6.0-cu124` + `uv-bootstrap`）。
+IDE 用 **Dev Container** 进环境；底座由 [`docker-compose.yml`](../docker-compose.yml) 构建（镜像 `basicsr-mlops-gpu:2.6.0-cu124` + `uv-bootstrap`）。GitLab CI 只跑 Ruff / Pyright，不使用这套 GPU 镜像。
 
 ## 架构（三层）
 
@@ -50,14 +50,13 @@ uv run python scripts/data/prepare_paired_tiff_dataset.py \
 
 该步骤只校验同名、尺寸和 uint16，并生成 train/val metadata；不会修改或复制图像。
 
-### 正式微调训练 → GitLab CI
+### 正式微调训练
 
 1. 确认共享区已有 `LQ/`、`GT/`，个人 NFS 区已有 `train.txt`、`val.txt`、`normalization.json`
-2. 设置 `PAIRED_DATASET_NAME`，push 到 `main`
-3. 先 play **`train_paired_tiff_swinir_debug`**，再 play **`train_paired_tiff_swinir`**
-4. 产出：`/mnt/home/${USER}/cst_ai/ci_outputs/{PipelineID}/`
+2. 在 gpu01 上执行 `uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt options/train/SwinIR/<实验>.yml --launcher pytorch`
+3. 产出在 YAML 的 `path.experiments_root` 下
 
-本地短调试可用 `docker-dev.sh run` + 单卡 `basicsr/train.py`，长跑仍建议 CI。
+本地短调试可用 `docker-dev.sh run` + 单卡 `basicsr/train.py`。GitLab CI 只做 Ruff / Pyright，不启动训练。
 
 ## 权限
 

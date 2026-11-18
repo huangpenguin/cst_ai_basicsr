@@ -46,15 +46,11 @@ experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth
 
 规则：`.cursor/rules/singular-scripts.mdc`（同功能脚本不复数；用 flag / `--root` 扩展）。
 
-### 1.4 CI 训练
+### 1.4 训练入口
 
-- Job：`train_paired_tiff_swinir`（手动）
-- 换实验：改 `.gitlab/ci/train.yml` 里 `TRAIN_OPT` 指向的 YAML
-- 07-29 写本节时指向 mix（2026-08 起改为 ALcast，见第 9 节）：
-
-```yaml
-TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30k.yml"
-```
+- 2026-11-09 起训练不走 GitLab。在 gpu01 上执行 `uv run python -m torch.distributed.run --standalone --nproc_per_node=4 basicsr/train.py -opt <yaml> --launcher pytorch`。
+- 换实验：直接更换 `options/train/SwinIR/` 下的 YAML。
+- 此前曾用手动 job `train_paired_tiff_swinir`，当时的 `TRAIN_OPT` 指向 mix，2026-08 起改为 ALcast，见第 9 节。
 
 ---
 
@@ -135,7 +131,7 @@ TRAIN_OPT: "options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30
 | `experiments_root` | `/home/huang/cst_ai/experiments/cylinder_260520_gt90ua` |
 | 权重 | `…/train_SwinIR_grayDN_cylinder_gt90ua_noise25_P128W8_bs4_i30k/models/net_g_latest.pth` |
 | 标签 | `new_cylinder_gt90ua` |
-| 启动 | 改 `TRAIN_OPT` → 手动跑 CI `train_paired_tiff_swinir` |
+| 启动 | 当时：改 `TRAIN_OPT` 后手动跑 CI `train_paired_tiff_swinir`。2026-11-09 起改为直接执行本 YAML |
 
 ### 3.D Cylinder+Phantom Mix（第四行）
 
@@ -373,7 +369,7 @@ uv run python scripts/eval/enrich_eval_benchmark_panels.py \
 
 ---
 
-## 9. ALcast 150kV（2026-08，当前默认 `TRAIN_OPT`）
+## 9. ALcast 150kV（2026-08）
 
 | 项 | 值 |
 |----|-----|
@@ -421,7 +417,7 @@ uv run python scripts/eval/enrich_eval_benchmark_panels.py \
 | YAML | `options/train/SwinIR/train_TSFDAN_lora_cylinder_phantom_mix_bs4_10k.yml` |
 | 超参 | 4 GPU × bs4，P128，lr 1e-4，10k iter，milestones [5000, 8000]，MSE，**`val: ~`** |
 | `experiments_root` | `/home/huang/cst_ai/experiments/cylinder_phantom_mix_tsfdan_lora` |
-| CI | `train_tsfdan_lora_mix_debug` → `train_tsfdan_lora_mix` → **`eval_tsfdan_lora_mix`**（唯一正式指标/面板来源） |
+| CI | 当时的手动 job：`train_tsfdan_lora_mix_debug` → `train_tsfdan_lora_mix` → **`eval_tsfdan_lora_mix`**。2026-11-09 起这些 job 已删除，训练改为直接执行本 YAML |
 | 推理 | `scripts/infer/infer_tsfdan_tiff.py`、`scripts/eval/run_eval_benchmark_tsfdan.sh`；tag `tsfdan_lora_mix` |
 
 `eval_tsfdan_lora_mix` 优先用 `TSFDAN_CKPT_NAME`，找不到时回退到最新的 `net_g_<iter>.pth`。
