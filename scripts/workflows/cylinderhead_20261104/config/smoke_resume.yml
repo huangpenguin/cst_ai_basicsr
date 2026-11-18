@@ -1,0 +1,134 @@
+{
+  "name": "smoke_cylinderhead_ddp",
+  "model_type": "SwinIRModel",
+  "scale": 1,
+  "num_gpu": 4,
+  "manual_seed": 0,
+  "datasets": {
+    "train": {
+      "type": "PairedTiffImageDataset",
+      "dataroot_gt": "/data/GT",
+      "dataroot_lq": "/data/LQ",
+      "normalization": "/data/normalization.json",
+      "filename_tmpl": "{}",
+      "io_backend": {
+        "type": "disk"
+      },
+      "name": "CylinderheadMean3Train",
+      "meta_info_file": "/training_run/control/smoke_train.txt",
+      "gt_size": 128,
+      "use_hflip": true,
+      "use_rot": true,
+      "num_worker_per_gpu": 2,
+      "batch_size_per_gpu": 4,
+      "dataset_enlarge_ratio": 1,
+      "prefetch_mode": null,
+      "pin_memory": true
+    },
+    "val": {
+      "type": "PairedTiffImageDataset",
+      "dataroot_gt": "/data/GT",
+      "dataroot_lq": "/data/LQ",
+      "normalization": "/data/normalization.json",
+      "filename_tmpl": "{}",
+      "io_backend": {
+        "type": "disk"
+      },
+      "name": "CylinderheadMean3ValidationMonitor",
+      "meta_info_file": "/training_run/control/smoke_val.txt"
+    }
+  },
+  "network_g": {
+    "type": "SwinIR",
+    "upscale": 1,
+    "in_chans": 1,
+    "img_size": 128,
+    "window_size": 8,
+    "img_range": 1.0,
+    "depths": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
+    "embed_dim": 180,
+    "num_heads": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
+    "mlp_ratio": 2,
+    "upsampler": "",
+    "resi_connection": "1conv"
+  },
+  "path": {
+    "pretrain_network_g": "/training_run/pretrained/swinir_noise25.pth",
+    "param_key_g": "params_ema",
+    "strict_load_g": true,
+    "resume_state": null,
+    "experiments_root": "/training_run/artifacts"
+  },
+  "train": {
+    "ema_decay": 0.999,
+    "optim_g": {
+      "type": "Adam",
+      "lr": 0.0001,
+      "weight_decay": 0,
+      "betas": [
+        0.9,
+        0.99
+      ]
+    },
+    "scheduler": {
+      "type": "MultiStepLR",
+      "milestones": [],
+      "gamma": 0.5
+    },
+    "total_iter": 12,
+    "warmup_iter": -1,
+    "pixel_opt": {
+      "type": "MSELoss",
+      "loss_weight": 1.0,
+      "reduction": "mean"
+    }
+  },
+  "val": {
+    "val_freq": 8,
+    "save_img": false,
+    "max_num": 2,
+    "tile_size": 256,
+    "tile_overlap": 32,
+    "tb_image_count": 2,
+    "metrics": {
+      "psnr": {
+        "type": "calculate_psnr",
+        "crop_border": 0,
+        "test_y_channel": false
+      },
+      "ssim": {
+        "type": "calculate_ssim",
+        "crop_border": 0,
+        "test_y_channel": false
+      }
+    }
+  },
+  "logger": {
+    "print_freq": 1,
+    "save_checkpoint_freq": 4,
+    "use_tb_logger": false,
+    "wandb": {
+      "project": null,
+      "entity": null,
+      "resume_id": null
+    }
+  },
+  "dist_params": {
+    "backend": "nccl",
+    "timeout_min": 120
+  }
+}

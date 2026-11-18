@@ -1,0 +1,14 @@
+{
+  "code_commit": "41d7bfd32c33017182c6704fac952e75b5aad830",
+  "model": "train_SwinIR_cylinderhead_mean3_raw_P128_bs4x4_i30k",
+  "gpus": 4,
+  "batch_per_gpu": 4,
+  "global_batch_size": 16,
+  "patch_size": 128,
+  "total_iter": 30000,
+  "train_manifest": "/data/train.txt",
+  "validation_monitor": "/data/val_monitor.txt",
+  "test_policy": "/data/test.txt and /data/test_preview.txt are not referenced by training or validation",
+  "alignment": "none; preserved original source TIFFs at user request",
+  "metrics_note": "Training validation uses the existing BasicSR uint8 display metrics; final test preview uses normalized float PSNR/SSIM"
+}

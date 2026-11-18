@@ -66,3 +66,13 @@ presets:
     family: tsfdan
     ckpt: /mnt/home/huang/cst_ai/experiments/cylinder_phantom_mix_tsfdan_lora/train_TSFDAN_lora_cylinder_phantom_mix_P128_bs4_i10k/models/net_g_latest.pth
     train_yaml: options/train/SwinIR/train_TSFDAN_lora_cylinder_phantom_mix_bs4_10k.yml
+
+  # BEGIN managed cylinderhead 20261104_173035
+  - id: "swinir_cylinderhead_mean3_20261104_173035"
+    label: "[swinir_m] Cylinderhead mean3 | 2026-11-05 05:44 JST | FINAL step 30000"
+    family: "swinir_m"
+    ckpt: "/mnt/home/huang/cst_ai/demo_models/SwinIR_Cylinderhead_mean3_20261105_054425_JST_final_i30000.pth"
+    param_key: "params_ema"
+    train_yaml: "/mnt/home/huang/cst_ai/experiments/cylinderhead_300kv_mean3_20261104_173035_JST/control/train.yml"
+    notes: "FINAL; run 20261104_173035 JST; three 200uA scans averaged; source pixels unchanged; independent test reserved."
+  # END managed cylinderhead 20261104_173035

@@ -1,0 +1,13 @@
+{
+  "stamp": "20261104_173035_JST",
+  "work": "/mnt/home/huang/code/cst_ai/BasicSR/scripts/workflows/cylinderhead_20261104/training",
+  "data": "/mnt/data/cst_ai/datasets/cylinderhead_300kv_pairs_raw_mean3_20261104_173035_JST",
+  "run": "/mnt/home/huang/cst_ai/experiments/cylinderhead_300kv_mean3_20261104_173035_JST",
+  "source": "/mnt/data/cst_ai/datasets/cylinderhead_300kv_raw_20261102_191914_JST",
+  "mean": "/mnt/data/cst_ai/datasets/cylinderhead_300kv_gt200ua_mean3_20261104_165839_JST",
+  "repo": "/mnt/home/huang/code/cst_ai/BasicSR",
+  "gpu_host": "huang@192.168.3.18",
+  "gpus": 4,
+  "alignment": "none; user requested unchanged source pixels",
+  "model": "SwinIR-M grayscale denoising"
+}
