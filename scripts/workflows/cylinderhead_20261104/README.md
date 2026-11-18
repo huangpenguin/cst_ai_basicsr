@@ -1,7 +1,7 @@
 # Cylinderhead 300 kV mean3：2026-11-04 四卡微调流程
 
 这是本次已完成实验的数据准备、训练、测试和部署代码的统一维护入口。
-源码由 work1 的分散辅助目录归入本仓库；运行产物保留在 NFS，未放进 Git。
+源码由 work1 的分散辅助目录归入本仓库；运行产物保留在 NFS，未放进 Git。2026-11-18 去重后，work1 的三个 `cylinderhead-*` 旧目录链接到 `/mnt/home/huang/cst_ai/archive/scripts-closeout-20261118/` 下的同名归档，内部脚本入口仍指向本仓库。历史训练和最终模型注册已完成，旧入口无需常驻运行。
 本目录是这一次实验的具体配方，包含站点路径、容器挂载点和主机设置；移植新机器或新批次时需修改配置，不是通用云端一键启动器。
 
 ## 文件布局
@@ -28,7 +28,7 @@ demo/         work1 Dockerfile、Compose、依赖快照、Demo 冒烟检查
 5. **四卡流水线**：`training/pipeline.py` 通过 `torch.distributed.run --nproc_per_node=4` 进行四卡 smoke、断点续训验证、正式 30,000 步训练。每卡 batch=4，全局 batch=16；使用 MSE 全参数微调，验证每 2,000 步运行固定 20 张验证图。
 6. **独立测试**：正式训练后，`evaluation/evaluate_test.py` 使用最终 EMA 对预选的 40 张 test 图进行推理，输出去噪 uint16 TIFF、LQ/预测/GT 比较 PNG 和浮点 PSNR/SSIM。`data/export_test_samples.py` 根据既有列表建立完整 test 硬链接目录和 40 张 Demo 测试包。test 不参与训练、验证或 checkpoint 选择。
 7. **资源测量与发布**：`evaluation/benchmark_inference.py` 在验证图上测量推理显存与时间；`evaluation/register_model.py --watch` 等待流水线完成，复制带时间戳的最终权重、更新主仓库模型注册表并重启 Demo。直接调用该发布脚本时，默认注册最新的编号 checkpoint；历史实验已发布完成，日常启动 Demo 不需要再次运行。
-8. **Demo**：本目录 `demo/` 为部署文件的维护入口；实际 work1 Compose 目录仍为 `/home/huang/scripts/basicsr-demo`，以兼容已存在的容器。该本地目录保留部署时的文件副本，便于 Docker 使用完整的构建上下文；后续修改以本目录为准，再同步到本地部署目录。Compose 固定项目名 `basicsr-demo`，继续使用 `denoise-demo` 容器名和原来的 NFS 挂载。
+8. **Demo**：本目录 `demo/` 为部署文件的维护入口；实际 work1 Compose 目录仍为 `/home/huang/scripts/basicsr-demo`，以兼容已存在的容器。2026-11-18 去重后，该路径为指向本目录 `demo/` 的目录链接，Docker 继续使用完整构建上下文；修改直接在本目录维护，无需同步副本。Compose 固定项目名 `basicsr-demo`，继续使用 `denoise-demo` 容器名和原来的 NFS 挂载。
 
 ## 容器内路径契约
 

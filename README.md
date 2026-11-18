@@ -94,13 +94,13 @@ gpu01（192.168.3.18，4×V100）负责训练，work1（192.168.3.11，RTX 2080 
 |------|------------|----------------------|
 | `/mnt/home/huang/code/cst_ai/BasicSR` | 源码、项目文档、通用训练配置、Demo 模型注册表 | 已提交的 Git 跟踪文件会包含 |
 | `scripts/workflows/cylinderhead_20261104/`（本仓库内） | 本次 data / training / evaluation / demo / config 的统一代码入口 | 作为源码提交，数据与权重除外 |
-| `/home/huang/scripts/basicsr-demo`（work1） | 已运行的 Compose 部署入口，本地部署副本，对应上述 `demo/` | 通过主仓库保存对应源文件 |
-| `/home/huang/scripts/cylinderhead-*`（work1） | 原辅助目录；代码入口链接到主仓库，原本的小型分析产物和元数据保留 | 链接对应的源码通过主仓库保存，运行产物不包含 |
+| `/home/huang/scripts/basicsr-demo`（work1） | 已运行的 Compose 入口；目录链接到上述 `demo/`，保留完整构建上下文 | 直接使用主仓库已提交文件 |
+| `/home/huang/scripts/cylinderhead-*`（work1） | 历史辅助目录的兼容链接，指向 NFS 归档；内部源码入口仍链接到主仓库 | 源码由 Git 管理，历史分析产物在 NFS 归档 |
 | `/mnt/data/cst_ai/datasets` | 原始 ZIP、mean3 GT、配对数据与独立 test，均使用带时间戳的目录 | 不包含，位于仓库外 |
 | `/mnt/home/huang/cst_ai/experiments` | 实验目录：冻结源码、实际配置、日志、模型、评估结果 | 不包含，位于仓库外 |
 | `/mnt/home/huang/cst_ai/demo_models` | 带时间戳的 Demo 发布权重 | 不包含，位于仓库外 |
 
-`/home/huang/scripts` 本身不是 Git 仓库；其中 `tools` 存放下载工具，`kintai`、`trading system` 是其他项目。本次过程代码已集中到 [`scripts/workflows/cylinderhead_20261104/`](scripts/workflows/cylinderhead_20261104/README.md)，包含执行顺序、配置、容器路径契约和实验产物入口。原本分散的数据、训练和评估脚本通过符号链接保持兼容；Demo 的本地构建上下文保留部署副本，维护入口为本仓库的 `demo/`。OAuth 凭据仍保存在主机用户配置中，独立于源码与数据。
+`/home/huang/scripts` 本身不是 Git 仓库；其中 `tools` 存放下载工具，`kintai`、`trading system` 是其他项目。本次过程代码已集中到 [`scripts/workflows/cylinderhead_20261104/`](scripts/workflows/cylinderhead_20261104/README.md)，包含执行顺序、配置、容器路径契约和实验产物入口。原本分散的数据、训练和评估脚本通过符号链接保持兼容；三个历史辅助目录及分析产物归档于 `/mnt/home/huang/cst_ai/archive/scripts-closeout-20261118/`。Demo 的本地目录直接链接到本仓库 `demo/`，使用同一份完整构建上下文。OAuth 凭据仍保存在主机用户配置中，独立于源码与数据。
 
 本次实验的定位入口：
 
