@@ -1,0 +1,102 @@
+{
+  "name": "vertex_swinir_smoke",
+  "model_type": "SwinIRModel",
+  "scale": 1,
+  "num_gpu": 1,
+  "manual_seed": 0,
+  "datasets": {
+    "train": {
+      "type": "PairedTiffImageDataset",
+      "dataroot_gt": "/data/GT",
+      "dataroot_lq": "/data/LQ",
+      "normalization": "/data/normalization.json",
+      "filename_tmpl": "{}",
+      "io_backend": {
+        "type": "disk"
+      },
+      "name": "CylinderheadMean3Train",
+      "meta_info_file": "/training_run/control/smoke_train.txt",
+      "gt_size": 128,
+      "use_hflip": true,
+      "use_rot": true,
+      "num_worker_per_gpu": 0,
+      "batch_size_per_gpu": 1,
+      "dataset_enlarge_ratio": 1,
+      "prefetch_mode": null,
+      "pin_memory": false
+    }
+  },
+  "network_g": {
+    "type": "SwinIR",
+    "upscale": 1,
+    "in_chans": 1,
+    "img_size": 128,
+    "window_size": 8,
+    "img_range": 1.0,
+    "depths": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
+    "embed_dim": 180,
+    "num_heads": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
+    "mlp_ratio": 2,
+    "upsampler": "",
+    "resi_connection": "1conv"
+  },
+  "path": {
+    "pretrain_network_g": "/workspace/experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth",
+    "param_key_g": "params",
+    "strict_load_g": true,
+    "resume_state": null,
+    "experiments_root": "/training_run/artifacts"
+  },
+  "train": {
+    "ema_decay": 0.999,
+    "optim_g": {
+      "type": "Adam",
+      "lr": 0.0001,
+      "weight_decay": 0,
+      "betas": [
+        0.9,
+        0.99
+      ]
+    },
+    "scheduler": {
+      "type": "MultiStepLR",
+      "milestones": [],
+      "gamma": 0.5
+    },
+    "total_iter": 2,
+    "warmup_iter": -1,
+    "pixel_opt": {
+      "type": "MSELoss",
+      "loss_weight": 1.0,
+      "reduction": "mean"
+    }
+  },
+  "logger": {
+    "print_freq": 1,
+    "save_checkpoint_freq": 1000000,
+    "use_tb_logger": false,
+    "wandb": {
+      "project": null,
+      "entity": null,
+      "resume_id": null
+    }
+  },
+  "dist_params": {
+    "backend": "nccl",
+    "timeout_min": 120
+  }
+}

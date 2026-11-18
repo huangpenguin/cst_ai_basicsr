@@ -11,6 +11,8 @@ include = [
   "scripts/infer/swinir_gray_dn_infer.py",
   "basicsr/data/paired_tiff_image_dataset.py",
   "apps/denoise_demo/*.py",
+  "scripts/workflows/cylinderhead_20261104/**/*.py",
+  "deploy/vertex/*.py",
 ]
 
 [lint]
@@ -20,6 +22,9 @@ select = ["E", "F", "B", "I"]
 "scripts/ci/ci_gpu_smoke.py" = ["E402"]
 "apps/denoise_demo/app.py" = ["E402"]
 "apps/denoise_demo/engine.py" = ["E402"]
+"scripts/workflows/cylinderhead_20261104/demo/smoke.py" = ["E402"]
+"scripts/workflows/cylinderhead_20261104/evaluation/*.py" = ["E402"]
+"deploy/vertex/internal_ui.py" = ["B008"]  # Gradio injects Progress through the callback default.
 
 [format]
 line-ending = "lf"

@@ -33,9 +33,10 @@ if str(REPO_ROOT) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from output_formats import OutputFormat, save_denoised  # noqa: E402
 from swinir_gray_dn_infer import load_gray_dn_model  # noqa: E402
 from tsfdan_infer_helpers import load_tsfdan_model  # noqa: E402
+
+from scripts.infer.output_formats import OutputFormat, save_denoised  # noqa: E402
 
 CACHE_CAP: Final[int] = 2
 ENV_IDLE_SECONDS: Final[str] = "DENOISE_DEMO_IDLE_SECONDS"

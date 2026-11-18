@@ -1,0 +1,10 @@
+# The Vertex API serves only the existing formal cylinderhead final checkpoint.
+default_id: swinir_cylinderhead_mean3_20261104_173035
+presets:
+  - id: swinir_cylinderhead_mean3_20261104_173035
+    label: "[swinir_m] Cylinderhead mean3 | 2026-11-05 05:44 JST | FINAL step 30000"
+    family: swinir_m
+    ckpt: /opt/models/cylinderhead_final_i30000.pth
+    param_key: params_ema
+    train_yaml: /opt/models/cylinderhead_train.yml
+    notes: "FINAL; run 20261104_173035 JST; three 200uA scans averaged; source pixels unchanged; independent test reserved."

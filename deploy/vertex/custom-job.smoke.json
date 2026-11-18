@@ -1,0 +1,36 @@
+{
+  "serviceAccount": "denoise-vertex@hallowed-pipe-497802-i0.iam.gserviceaccount.com",
+  "baseOutputDirectory": {
+    "outputUriPrefix": "gs://hallowed-pipe-497802-i0-denoise-vertex/vertex-smoke/RUN_ID"
+  },
+  "workerPoolSpecs": [
+    {
+      "machineSpec": {
+        "machineType": "n1-standard-8",
+        "acceleratorType": "NVIDIA_TESLA_T4",
+        "acceleratorCount": 1
+      },
+      "replicaCount": "1",
+      "diskSpec": {
+        "bootDiskType": "pd-ssd",
+        "bootDiskSizeGb": 100
+      },
+      "containerSpec": {
+        "imageUri": "asia-northeast1-docker.pkg.dev/hallowed-pipe-497802-i0/denoise/denoise-vertex@sha256:fac4b16b9454f8b4685743477959cff89175467d001d3407ecefcf2b4747a73f",
+        "args": [
+          "python",
+          "/opt/vertex/train_smoke.py",
+          "--iterations",
+          "2",
+          "--output-uri",
+          "gs://hallowed-pipe-497802-i0-denoise-vertex/vertex-smoke/RUN_ID"
+        ]
+      }
+    }
+  ],
+  "scheduling": {
+    "timeout": "1800s",
+    "disableRetries": true,
+    "restartJobOnWorkerRestart": false
+  }
+}

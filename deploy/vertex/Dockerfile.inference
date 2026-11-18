@@ -1,0 +1,59 @@
+# syntax=docker/dockerfile:1
+ARG SOURCE_IMAGE=denoise-vertex:local
+FROM ${SOURCE_IMAGE} AS dependencies
+
+# Keep the validated application's dependency versions. Torch/CUDA already exist
+# in the final PyTorch base; exclude their second copies and the uv download cache.
+RUN /opt/conda/bin/python - <<'PY'
+from pathlib import Path
+import shutil
+
+source = Path('/workspace/.venv/lib/python3.11/site-packages')
+destination = Path('/opt/inference-deps')
+destination.mkdir()
+for item in source.iterdir():
+    if item.name.startswith(('torch', 'nvidia', 'triton', 'cusparselt')):
+        continue
+    if item.name == '__pycache__':
+        continue
+    target = destination / item.name
+    if item.is_dir():
+        shutil.copytree(item, target, symlinks=True)
+    else:
+        shutil.copy2(item, target, follow_symlinks=False)
+PY
+
+FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/opt/inference-deps:/workspace:/opt/vertex \
+    GRADIO_ANALYTICS_ENABLED=False \
+    TZ=Asia/Tokyo \
+    LANG=C.UTF-8
+
+RUN /opt/conda/bin/python -c "import torch, torchvision; assert torch.__version__ == '2.6.0+cu124'; assert torch.version.cuda == '12.4'; assert torchvision.__version__ == '0.21.0+cu124'" \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates passwd tini util-linux \
+    && ln -snf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime \
+    && echo Asia/Tokyo > /etc/timezone \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 app \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash app
+
+WORKDIR /workspace
+COPY --from=dependencies --chown=app:app /opt/inference-deps /opt/inference-deps
+COPY --from=dependencies --chown=app:app /workspace/basicsr ./basicsr
+COPY --from=dependencies --chown=app:app /workspace/apps ./apps
+COPY --from=dependencies --chown=app:app /workspace/scripts/infer ./scripts/infer
+COPY --from=dependencies --chown=app:app /workspace/options ./options
+COPY --from=dependencies --chown=app:app /opt/models/cylinderhead_final_i30000.pth /opt/models/cylinderhead_final_i30000.pth
+COPY --from=dependencies --chown=app:app /opt/models/cylinderhead_train.yml /opt/models/cylinderhead_train.yml
+COPY --chown=app:app deploy/vertex/models.inference.yaml ./apps/denoise_demo/models.yaml
+COPY --from=dependencies --chown=app:app /opt/vertex/serve.py /opt/vertex/gcs.py /opt/vertex/
+COPY --from=dependencies --chmod=755 /usr/local/bin/serve-entrypoint /usr/local/bin/serve-entrypoint
+
+EXPOSE 8080
+ENTRYPOINT ["tini", "--", "/usr/local/bin/serve-entrypoint"]
+CMD ["python", "/opt/vertex/serve.py"]

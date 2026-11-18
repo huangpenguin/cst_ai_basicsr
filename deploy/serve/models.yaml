@@ -1,0 +1,75 @@
+# Registry baked into the customer image. Paths under /opt/models come from
+# deploy/serve/stage-weights.sh. Official pretrained files stay in the repo tree.
+# The published site opens on the cylinderhead final checkpoint.
+
+default_id: swinir_cylinderhead_mean3_20261104_173035
+
+presets:
+  - id: swinir_official_n15
+    label: "[swinir_m] official PreFT (noise15)"
+    family: swinir_m
+    ckpt: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise15.pth
+    param_key: params_ema
+    notes: official PreFT (noise sigma 15)
+
+  - id: swinir_preft
+    label: "[swinir_m] official PreFT (noise25)"
+    family: swinir_m
+    ckpt: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth
+    param_key: params_ema
+    notes: official PreFT (noise sigma 25)
+
+  - id: swinir_official_n50
+    label: "[swinir_m] official PreFT (noise50)"
+    family: swinir_m
+    ckpt: experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise50.pth
+    param_key: params_ema
+    notes: official PreFT (noise sigma 50)
+
+  - id: swinir_aligned_drive
+    label: "[swinir_m] aligned_drive (phantom)"
+    family: swinir_m
+    ckpt: /opt/models/aligned_drive_net_g_latest.pth
+    train_yaml: options/train/SwinIR/train_SwinIR_grayDN_paired_tiff.yml
+
+  - id: swinir_cylinder90
+    label: "[swinir_m] cylinder GT90µA"
+    family: swinir_m
+    ckpt: /opt/models/cylinder90_net_g_latest.pth
+    train_yaml: options/train/SwinIR/train_SwinIR_grayDN_cylinder_gt90ua_bs8_30k.yml
+
+  - id: swinir_mix
+    label: "[swinir_m] mix (cylinder+phantom)"
+    family: swinir_m
+    ckpt: /opt/models/mix_net_g_latest.pth
+    train_yaml: options/train/SwinIR/train_SwinIR_grayDN_cylinder_phantom_mix_bs4_30k.yml
+
+  - id: swinir_alcast
+    label: "[swinir_m] ALcast GT66mA"
+    family: swinir_m
+    ckpt: /opt/models/alcast_net_g_latest.pth
+    train_yaml: options/train/SwinIR/train_SwinIR_grayDN_alcast_gt66ma_bs4_30k.yml
+
+  - id: swinir_archive
+    label: "[swinir_m] archive cylinderblock"
+    family: swinir_m
+    ckpt: /opt/models/archive_cylinderblock_net_g_latest.pth
+
+  - id: tsfdan_preft
+    label: "[tsfdan] official PreFT"
+    family: tsfdan
+    ckpt: experiments/pretrained_models/TSFDAN/SwinTransformer_288800iter.ckpt
+
+  - id: tsfdan_lora_mix
+    label: "[tsfdan] LoRA mix (cylinder+phantom)"
+    family: tsfdan
+    ckpt: /opt/models/tsfdan_lora_mix_net_g_latest.pth
+    train_yaml: options/train/SwinIR/train_TSFDAN_lora_cylinder_phantom_mix_bs4_10k.yml
+
+  - id: swinir_cylinderhead_mean3_20261104_173035
+    label: "[swinir_m] Cylinderhead mean3 | 2026-11-05 05:44 JST | FINAL step 30000"
+    family: swinir_m
+    ckpt: /opt/models/cylinderhead_final_i30000.pth
+    param_key: params_ema
+    train_yaml: /opt/models/cylinderhead_train.yml
+    notes: "FINAL; run 20261104_173035 JST; three 200uA scans averaged; source pixels unchanged; independent test reserved."

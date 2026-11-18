@@ -70,3 +70,9 @@ ppt/
 .ci_experiments_root
 .ci_run_root
 .ci_tb_logger_root
+
+# Checkpoints staged by deploy/serve/stage-weights.sh for the customer image.
+/deploy/serve/weights/
+
+# Local reference image; source datasets are managed outside Git.
+/data_0218.tif
