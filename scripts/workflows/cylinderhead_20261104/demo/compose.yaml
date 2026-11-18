@@ -4,7 +4,8 @@ services:
     build: .
     image: basicsr-denoise-demo:2.6.0-cu124
     container_name: denoise-demo
-    restart: unless-stopped
+    profiles: [legacy-local-gpu]
+    restart: "no"
     gpus: all
     # Host NVIDIA devices are owned by vglusers (GID 1001), mode 0660.
     group_add:

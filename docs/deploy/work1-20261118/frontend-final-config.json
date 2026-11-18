@@ -1,0 +1,43 @@
+{
+  "observed_utc": "2026-11-18T05:17:07.351295+00:00",
+  "name": "/denoise-vertex-ui",
+  "running": true,
+  "image_id": "sha256:c5a18e2e2fdda2d1c0b4795c0aba58a11581d268edc4bcf4360853ccbb31efc4",
+  "image_reference": "asia-northeast1-docker.pkg.dev/hallowed-pipe-497802-i0/denoise/denoise-vertex@sha256:fac4b16b9454f8b4685743477959cff89175467d001d3407ecefcf2b4747a73f",
+  "image_bytes": 28423078506,
+  "repo_digests": [
+    "asia-northeast1-docker.pkg.dev/hallowed-pipe-497802-i0/denoise/denoise-vertex@sha256:fac4b16b9454f8b4685743477959cff89175467d001d3407ecefcf2b4747a73f"
+  ],
+  "user": "1003:1003",
+  "restart_policy": {
+    "Name": "unless-stopped",
+    "MaximumRetryCount": 0
+  },
+  "ports": {
+    "7860/tcp": [
+      {
+        "HostIp": "192.168.3.11",
+        "HostPort": "7861"
+      }
+    ]
+  },
+  "device_requests": null,
+  "runtime": "runc",
+  "NVIDIA_VISIBLE_DEVICES": "void",
+  "CUDA_VISIBLE_DEVICES": "",
+  "project": "hallowed-pipe-497802-i0",
+  "predict_url": "https://8911645097217490944.asia-northeast1-580558088344.prediction.vertexai.goog/v1/projects/580558088344/locations/asia-northeast1/endpoints/8911645097217490944:predict",
+  "mounts": [
+    {
+      "source": "/home/huang/.config/basicsr-vertex/application_default_credentials.json",
+      "destination": "/adc.json",
+      "read_write": false
+    },
+    {
+      "source": "/mnt/home/huang/code/cst_ai/BasicSR/deploy/vertex/internal_ui.py",
+      "destination": "/opt/internal_ui.py",
+      "read_write": false
+    }
+  ],
+  "frontend_source_sha256": "1646ce9ec21804604c5e8559dbdb4e2488f09212b3c36a1dc6bb3d07cdac1d3f"
+}

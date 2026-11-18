@@ -1,0 +1,11 @@
+{
+  "gpu_count": 1,
+  "batch_per_gpu": 1,
+  "iterations": 8,
+  "input": "gs://hallowed-pipe-497802-i0-denoise-vertex/datasets/acceptance-2ca67152392c4ce8/dataset.tar",
+  "output": "gs://hallowed-pipe-497802-i0-denoise-vertex/training-readiness/dry-run",
+  "mode": "acceptance",
+  "crop_size": 128,
+  "global_batch_size": 1,
+  "training_started": false
+}

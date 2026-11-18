@@ -1,0 +1,16 @@
+[
+  {
+    "createTime": "2026-11-18T08:32:45.955950Z",
+    "displayName": "acceptance-20261118T083239Z",
+    "endTime": "2026-11-18T08:39:39Z",
+    "name": "projects/580558088344/locations/asia-northeast1/customJobs/3085482377774891008",
+    "state": "JOB_STATE_SUCCEEDED"
+  },
+  {
+    "createTime": "2026-11-17T09:21:03.487572Z",
+    "displayName": "denoise-swinir-training-smoke-20261117-run1",
+    "endTime": "2026-11-17T09:37:20Z",
+    "name": "projects/580558088344/locations/asia-northeast1/customJobs/1044436952901746688",
+    "state": "JOB_STATE_SUCCEEDED"
+  }
+]

@@ -1,0 +1,218 @@
+{
+  "observed_utc": "2026-11-18T08:25:17.049299+00:00",
+  "metrics": [
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_c2_cpus",
+      "display_name": "Custom model training CPUs for C2 CPU types",
+      "tokyo": {
+        "defaultLimit": "20",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "20"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_c3_cpus",
+      "display_name": "Custom model training CPUs for C3 CPU types",
+      "tokyo": {
+        "defaultLimit": "180",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "180"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_c4_cpus",
+      "display_name": "Custom model training CPUs for C4 CPU types",
+      "tokyo": {
+        "defaultLimit": "450",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "450"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_c4d_cpus",
+      "display_name": "Custom model training CPUs for C4D CPU types",
+      "tokyo": {
+        "defaultLimit": "630",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "630"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_cpus",
+      "display_name": "Custom model training CPUs for N1/E2 machine types",
+      "tokyo": {
+        "defaultLimit": "2200",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "2200"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_m1_cpus",
+      "display_name": "Custom model training CPUs for M1 CPU types",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_n2_cpus",
+      "display_name": "Custom model training CPUs for N2 CPU types",
+      "tokyo": {
+        "defaultLimit": "20",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "20"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_n2d_cpus",
+      "display_name": "Custom model training CPUs for N2D CPU types",
+      "tokyo": {
+        "defaultLimit": "2700",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "2700"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_n4_cpus",
+      "display_name": "Custom model training CPUs for N4 CPU types",
+      "tokyo": {
+        "defaultLimit": "20",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "20"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_n4d_cpus",
+      "display_name": "Custom model training CPUs for N4D CPU types",
+      "tokyo": {
+        "defaultLimit": "20",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "20"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_a100_80gb_gpus",
+      "display_name": "Custom model training Nvidia A100 80GB GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_a100_gpus",
+      "display_name": "Custom model training Nvidia A100 GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_h100_gpus",
+      "display_name": "Custom model training Nvidia H100 GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_h100_mega_gpus",
+      "display_name": "Custom model training Nvidia H100 Mega GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_l4_gpus",
+      "display_name": "Custom model training Nvidia L4 GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_p100_gpus",
+      "display_name": "Custom model training Nvidia P100 GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_p4_gpus",
+      "display_name": "Custom model training Nvidia P4 GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_t4_gpus",
+      "display_name": "Custom model training Nvidia T4 GPUs",
+      "tokyo": {
+        "defaultLimit": "6",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "6"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_nvidia_v100_gpus",
+      "display_name": "Custom model training Nvidia V100 GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_pd_hdd",
+      "display_name": "Custom model training total persistent disk HDD storage (GB)",
+      "tokyo": {
+        "defaultLimit": "180000",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "180000"
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_pd_ssd",
+      "display_name": "Custom model training total persistent disk SSD storage (GB)",
+      "tokyo": {
+        "defaultLimit": "75000",
+        "dimensions": {
+          "region": "asia-northeast1"
+        },
+        "effectiveLimit": "75000"
+      }
+    }
+  ]
+}

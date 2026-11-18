@@ -1,3 +1,5 @@
+> **Retired local GPU deployment (2026-11-18).** The active CPU → Vertex UI is http://192.168.3.11:7861, managed from `/mnt/home/huang/code/cst_ai/BasicSR/deploy/vertex/`. The instructions below are historical. Metadata and image details now live in the active UI; keep these sources for shared model components and reproducibility.
+
 # BasicSR Demo on jil-08-01
 
 Code and weights are read from NFS. Python dependencies are installed in the

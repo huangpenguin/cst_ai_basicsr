@@ -1,3 +1,5 @@
+> **Retired local GPU deployment (2026-11-18).** The active CPU → Vertex UI is http://192.168.3.11:7861, managed from `/mnt/home/huang/code/cst_ai/BasicSR/deploy/vertex/`. The instructions below are historical. Metadata and image details now live in the active UI; keep these sources for shared model components and reproducibility.
+
 # CT 灰度去噪演示（Gradio）
 
 独立网页界面，目录：`apps/denoise_demo/`。上传灰度图 → GPU 上用进程内缓存的模型去噪 → 并排显示 **输入 | 去噪结果**。模型族为 `swinir_m`（SwinIR-M）和 `tsfdan`（TSFDANSwinIR），二者的 `state_dict` 不能混用。

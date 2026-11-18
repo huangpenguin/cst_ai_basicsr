@@ -1,0 +1,15 @@
+{
+  "deploy/vertex/training/.dockerignore": "b3c9ac6abf255597a9fe52c734a6ab611f47a52b5e689734ea7b2bfc48e81e1d",
+  "deploy/vertex/training/Dockerfile": "f11d8e2da364592a7b09bb0ac84e43e01c76a697e25dd03997305ea8f1885caa",
+  "deploy/vertex/training/README.md": "3cb46e723687ce2688d24c0f2875a4fdae9fbc4a3346e489825dc6007f6a0e23",
+  "deploy/vertex/training/fetch-artifacts.sh": "b7bb02db8f7ad81935387313b8fbd8391207e10925afbf8744a6a298f0666c95",
+  "deploy/vertex/training/fetch_artifacts.py": "7dcd3f815a19bd56785ea7a139dae3fabc9bcb1064925ef8bd8996c0eca437d5",
+  "deploy/vertex/training/make_job.py": "ce87a3b46fbc561cdcc016cc3b1ca65551891b2072504ef223675574a4466d44",
+  "deploy/vertex/training/prepare_data.py": "b15de5f19d52b3670591b01e742bfcd57720c1b064ca3fc6694dec9fc16a51ef",
+  "deploy/vertex/training/stage_acceptance_data.py": "40e5381a8befb5df35a0b2b46930d8f4eda3e463ebe775dc2136d044c54c331f",
+  "deploy/vertex/training/test_training_io.py": "b52068ea26383b4cc85b3e5f6874a115a6fbc901b5fa8f3c9f4f51463cb4345c",
+  "deploy/vertex/training/train-full.json": "9b9b7a15613d6f0f2f66a67be985e6f98aae93d008ad4d7ea6a19c151f22fdca",
+  "deploy/vertex/training/train_full.py": "6c8a5ad77ba86cf902477841f28952e7b3ebe803233de05ba86ba51c6394a984",
+  "deploy/vertex/training/upload-data.sh": "33cec2da9de1ee2f95593a9e9dd842b3d1b1d519cf4d3f93ab7fe577841f9c96",
+  "deploy/vertex/training/worker.py": "d97e2e227fb53c67777ae43f93faa6fa424ff0c90d20efd2b069be5f79a64873"
+}

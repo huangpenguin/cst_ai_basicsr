@@ -1,0 +1,16 @@
+{
+  "stopped_utc": "2026-11-18T05:14:11.256411+00:00",
+  "name": "denoise-demo",
+  "image_id": "sha256:1025ce5fb168a7c5bb1a90045692d89ca81701ecc7f5b912d9bc571bf897052b",
+  "verified_project": "basicsr-demo",
+  "old_port_bindings": {
+    "7860/tcp": [
+      {
+        "HostIp": "",
+        "HostPort": "7860"
+      }
+    ]
+  },
+  "running_after": false,
+  "container_deleted": false
+}

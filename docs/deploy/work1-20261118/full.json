@@ -1,0 +1,70 @@
+{
+  "started_utc": "2026-11-18T05:11:11.723091+00:00",
+  "case": "full",
+  "url": "http://192.168.3.11:7861",
+  "client_physical_host": "work1 (same host as frontend)",
+  "status": "PASS",
+  "preset_count": 11,
+  "page_title": "CT Denoise Demo",
+  "choices": [
+    [
+      "[swinir_m] official PreFT (noise15) [not deployed to Vertex]",
+      "swinir_official_n15"
+    ],
+    [
+      "[swinir_m] official PreFT (noise25) [not deployed to Vertex]",
+      "swinir_preft"
+    ],
+    [
+      "[swinir_m] official PreFT (noise50) [not deployed to Vertex]",
+      "swinir_official_n50"
+    ],
+    [
+      "[swinir_m] aligned_drive (phantom) [not deployed to Vertex]",
+      "swinir_aligned_drive"
+    ],
+    [
+      "[swinir_m] cylinder GT90\u00b5A [not deployed to Vertex]",
+      "swinir_cylinder90"
+    ],
+    [
+      "[swinir_m] mix (cylinder+phantom) [not deployed to Vertex]",
+      "swinir_mix"
+    ],
+    [
+      "[swinir_m] ALcast GT66mA [not deployed to Vertex]",
+      "swinir_alcast"
+    ],
+    [
+      "[swinir_m] archive cylinderblock [not deployed to Vertex]",
+      "swinir_archive"
+    ],
+    [
+      "[tsfdan] official PreFT [not deployed to Vertex]",
+      "tsfdan_preft"
+    ],
+    [
+      "[tsfdan] LoRA mix (cylinder+phantom) [not deployed to Vertex]",
+      "tsfdan_lora_mix"
+    ],
+    [
+      "[swinir_m] Cylinderhead mean3 | 2026-11-05 05:44 JST | FINAL step 30000",
+      "swinir_cylinderhead_mean3_20261104_173035"
+    ]
+  ],
+  "input": "/input-validation.tif",
+  "expected_size": [
+    1518,
+    1518
+  ],
+  "output_size": [
+    1518,
+    1518
+  ],
+  "output_dtype": "uint16",
+  "output_bytes": 4608770,
+  "vertex_status": "Vertex device: cuda; model: swinir_cylinderhead_mean3_20261104_173035; cloud processing: 47.361 s; total: 50.3 s.",
+  "output_file": "output-full.tif",
+  "elapsed_seconds": 51.755,
+  "completed_utc": "2026-11-18T05:12:03.478094+00:00"
+}

@@ -76,3 +76,10 @@ ppt/
 
 # Local reference image; source datasets are managed outside Git.
 /data_0218.tif
+
+# Local cloud identities and optimizer state are never source artifacts.
+application_default_credentials.json
+*service-account-key*.json
+*.pem
+*.key
+*.state

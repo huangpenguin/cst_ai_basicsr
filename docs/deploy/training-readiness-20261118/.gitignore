@@ -1,0 +1,18 @@
+# Publish reviewed text evidence only; raw diagnostics/data stay on NFS.
+*
+!.gitignore
+!image-digests.json
+!job-spec.json
+!job-created.json
+!job-latest.json
+!run.json
+!training-summary.json
+!checkpoint-verification.json
+!container-check.json
+!manual-preflight.json
+!source-manifest.json
+!worker-0.json
+!quotas-before.json
+!h100-preemptible-quota.json
+!jobs-before.json
+!jobs-after.json

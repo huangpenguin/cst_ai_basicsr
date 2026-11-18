@@ -1,0 +1,11 @@
+test_catalogue_yaml_path_is_not_a_gradio_download (__main__.FrontendRegression.test_catalogue_yaml_path_is_not_a_gradio_download) ... ok
+test_cloud_status_does_not_predict_or_invent_zero (__main__.FrontendRegression.test_cloud_status_does_not_predict_or_invent_zero) ... ok
+test_infer_retains_download_contract (__main__.FrontendRegression.test_infer_retains_download_contract) ... ok
+test_multipage_is_not_silently_truncated (__main__.FrontendRegression.test_multipage_is_not_silently_truncated) ... ok
+test_unavailable_preset_cannot_predict (__main__.FrontendRegression.test_unavailable_preset_cannot_predict) ... ok
+test_upload_preserves_uint16_and_clears_old_result (__main__.FrontendRegression.test_upload_preserves_uint16_and_clears_old_result) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.013s
+
+OK

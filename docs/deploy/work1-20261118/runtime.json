@@ -1,0 +1,7 @@
+{
+  "nvidia_devices": [],
+  "NVIDIA_VISIBLE_DEVICES": "void",
+  "CUDA_VISIBLE_DEVICES": "",
+  "uid": 1003,
+  "gid": 1003
+}

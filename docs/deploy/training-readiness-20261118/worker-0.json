@@ -1,0 +1,65 @@
+{
+  "rank": 0,
+  "status": "SUCCEEDED",
+  "started_unix": 1794990973.9371154,
+  "optimizer_updates": 8,
+  "losses": [
+    {
+      "iteration": 1,
+      "l_pix": 1.803519990062341e-05
+    },
+    {
+      "iteration": 2,
+      "l_pix": 0.0004969333531334996
+    },
+    {
+      "iteration": 3,
+      "l_pix": 1.1801390428445302e-05
+    },
+    {
+      "iteration": 4,
+      "l_pix": 7.756846025586128e-05
+    },
+    {
+      "iteration": 5,
+      "l_pix": 0.0004767096252180636
+    },
+    {
+      "iteration": 6,
+      "l_pix": 3.7318270187824965e-05
+    },
+    {
+      "iteration": 7,
+      "l_pix": 9.517739817965776e-05
+    },
+    {
+      "iteration": 8,
+      "l_pix": 1.5018147792034142e-07
+    }
+  ],
+  "training_peak_allocated_bytes": 7400487424,
+  "training_peak_reserved_bytes": 7547650048,
+  "validation_peak_allocated_bytes": 620428288,
+  "validation_peak_reserved_bytes": 7061110784,
+  "gpu_name": "Tesla T4",
+  "gpu_total_bytes": 15636037632,
+  "torch_version": "2.6.0+cu124",
+  "precision": "float32",
+  "crop_size": 128,
+  "batch_per_gpu": 1,
+  "world_size": 1,
+  "initial_weights_sha256": "fa84791523d1477e1b3d9ddf50cc12ae1ffc9622f4bfc419a525e4a1b4180ffc",
+  "trainable_parameters": 11497681,
+  "last_optimizer_iteration": 8,
+  "last_loss": {
+    "l_pix": 1.5018147792034142e-07
+  },
+  "validation_calls": 2,
+  "last_validation_metrics": {
+    "psnr": 25.90125411676871,
+    "ssim": 0.5149871402069229
+  },
+  "final_weights_sha256": "11a329e7ae621ac6aae197ec15f79405cec7f67ae28be7bd812e1560a3ffac36",
+  "weights_changed": true,
+  "elapsed_seconds": 170.31605625152588
+}

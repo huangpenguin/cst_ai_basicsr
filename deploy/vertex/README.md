@@ -1,6 +1,8 @@
 # Vertex AI 训练 smoke 与在线 GPU 推理
 
-当前内网入口：[http://192.168.3.18:7860](http://192.168.3.18:7860)。
+当前内网入口：[http://192.168.3.11:7861](http://192.168.3.11:7861)（work1，CPU 页面 → 现有 Vertex GPU）。
+
+2026-11-18 work1 页面与真实预测验收已通过，旧 work1 本地 GPU demo 和 gpu01 页面均已停止、容器保留。完整状态与副本归零结果见 [本轮迁移记录](../../docs/deploy/work1-migration-20261118.md)。项目统一使用 [Makefile](Makefile) 管理；原 [交接说明](../../docs/deploy/work1-migration-handoff-20261118.md) 保留作历史依据。
 
 2026-11-18：内网页面已恢复英文、原来的 11 个模型预设目录和原始线性灰度预览。当前 Vertex 推理部署仍只支持 Cylinderhead final；其余选项标注 `not deployed to Vertex`，选择后禁用 Denoise，并在服务调用前检查，不能仅切换名称而使用错误模型。该修改未重新部署云端，也未新增云端预测测试。各权重位置与 work1 迁移准备见 [界面修正及迁移说明](../../docs/deploy/vertex-ui-restoration-20261118.md)。
 
@@ -115,7 +117,7 @@ vertex_gcloud ai custom-jobs describe "${TRAINING_JOB##*/}" \
 
 已核对本机原始训练目录：`/mnt/data/cst_ai/datasets/cylinderhead_300kv_pairs_raw_mean3_20261104_173035_JST`。`train.txt` 有 6090 对，`val_monitor.txt` 有 20 对，两者无交集；训练与监控验证共 6110 对、12220 个 TIFF，所需文件均存在。文件逻辑大小合计 **52.452 GiB**；由于不同电流的 GT 使用硬链接，按源文件 inode 去重为 **28.849 GiB**。上传或打包方式会影响去重是否保留，不能把本机占用直接当作云端展开大小。`normalization.json` 固定为 0–65535；`test.txt` 的 2020 对应继续与训练/监控验证分开。
 
-后续正式提交前需要完成以下适配：
+以下保留为旧 smoke 入口的差距对照。新的 [完整训练入口](training/README.md) 已提供 GCS 大文件读取、原四卡配置、周期持久化、恢复和任务配置生成器，并发布了准备镜像；完整云端训练尚未执行，四卡大显存配额与容量仍是前提：
 
 1. **完整数据与 split。** 将训练/监控验证所需数据、`train.txt`、`val_monitor.txt`、`normalization.json` 和清单保存到私有 GCS，保留已有分组划分和源像素。当前镜像只有 4 对样本，当前入口只解包镜像内小包，没有完整数据的 GCS 下载/挂载路径；不应把完整数据塞进服务镜像。
 2. **正式配置与路径。** 以原 `scripts/workflows/cylinderhead_20261104/config/train.yml` 为来源，适配 `/data/GT`、`/data/LQ`、两个 split、归一化、预训练权重、实验输出和 TensorBoard 路径。恢复 30000 iter、15000/25000 学习率节点、每 2000 iter 的监控验证和每 1000 iter 的 checkpoint；当前 smoke 已移除这些设置。
@@ -182,47 +184,76 @@ Scale To Zero 是 Preview 功能，不支持 shared public Endpoint；此处只�
 
 验收后若不继续使用，undeploy 模型以停止在线 GPU 资源计费；只删除本地容器不能停止 Vertex Endpoint 的费用。训练 2 iter 产物只用于验证训练链路，在线推理继续使用既有正式 final step 30000。
 
-## 本机 CPU 内网页面
+## work1 CPU 内网页面
 
-`internal_ui.py` 只在 CPU 上读取上传图像、请求 Vertex、生成预览并提供 16 位 TIFF 下载，不加载本地模型。启动时只读 bind mount 工作区中的该文件，确保使用当前 UI 版本。以下命令不分配本机 GPU，也不启动云端训练或修改云资源；填写实际专属预测 URL 后执行：
+正式入口：http://192.168.3.11:7861 。项目目录为共享 NFS 上的
+`/mnt/home/huang/code/cst_ai/BasicSR`，直接复用代码，未复制或移动权重/数据。
+页面身份为本机合法 `authorized_user` ADC（`huang.pengbin@johnan.com`），
+本地私有配置在 `/home/huang/.config/basicsr-vertex/ui.env`，ADC 同目录 0600。
+不要将凭据放入 Git、NFS、镜像或浏览器。
 
-```bash
-VERTEX_PREDICT_URL='https://8911645097217490944.asia-northeast1-580558088344.prediction.vertexai.goog/v1/projects/580558088344/locations/asia-northeast1/endpoints/8911645097217490944:predict'
-
-docker run -d --name denoise-vertex-ui \
-  --restart unless-stopped \
-  --user 1003:1003 \
-  -e HOME=/tmp \
-  -e NVIDIA_VISIBLE_DEVICES=void \
-  -e CUDA_VISIBLE_DEVICES= \
-  -e GOOGLE_APPLICATION_CREDENTIALS=/adc.json \
-  -e VERTEX_PROJECT=hallowed-pipe-497802-i0 \
-  -e VERTEX_PREDICT_URL="$VERTEX_PREDICT_URL" \
-  -p 192.168.3.18:7860:7860 \
-  --mount type=bind,src=/home/huang/.config/pai_ai_control/gcloud/application_default_credentials.json,dst=/adc.json,readonly \
-  --mount type=bind,src=/mnt/home/huang/code/cst_ai/BasicSR/deploy/vertex/internal_ui.py,dst=/opt/internal_ui.py,readonly \
-  denoise-vertex:local python /opt/internal_ui.py
-```
-
-此主机 Docker 默认使用 NVIDIA runtime，因此命令用 `NVIDIA_VISIBLE_DEVICES=void` 显式禁止 GPU 设备注入，并清空 `CUDA_VISIBLE_DEVICES`；仅省略 `--gpus` 不足以保证页面容器没有 GPU。
-
-内部浏览器访问 `http://192.168.3.18:7860`。端口只发布到该内网地址，Gradio `share=False`。页面使用现有用户 ADC 在进程内刷新短期 token，受同一用户的 Vertex IAM 权限约束；无需把 ADC 交给浏览器。首次冷启动时保持页面等待，完成后可比较输入/输出预览并下载 TIFF。
-
-2026-11-17 已通过该内网地址完成 GradioClient 验收：64×64 小图与 1518×1518 代表图均返回尺寸一致的 `uint16` TIFF。代表图云端 handler 为 46.364 秒，从提交到下载为 61.912 秒；这是一轮实测，不是时延保证。测试客户端运行在同一物理主机、经上述内网地址访问，记录见 页面完整链路验收（NFS：`/mnt/home/huang/cst_ai/archive/basicsr-review-20261118/docs/deploy/vertex-ui-live-20261117.json`）。前端实际容器内 `/dev/nvidia*` 为空，端口绑定、HTTP 200 与无 GPU 设备的结果见 前端运行记录（NFS：`/mnt/home/huang/cst_ai/archive/basicsr-review-20261118/docs/deploy/vertex-ui-runtime-20261117.json`）。
-
-此主机原 ADC 属于 UID/GID `1003:1003`，权限 `0600`。镜像默认 root 入口会降权到 `app` UID 1000，因此这里明确使用 `--user 1003:1003`；原 `serve-entrypoint` 对非 root 直接 `exec`，既保留镜像 ENTRYPOINT，又能读取只读挂载的原 ADC。`HOME=/tmp` 为该 UID 提供可写缓存目录。不要修改原 ADC 权限、把它复制进镜像，或用覆盖 ENTRYPOINT 的方式启动这个页面。
-
-查看日志与停止本机页面：
+统一在仓库根目录管理：
 
 ```bash
-docker logs --tail 100 denoise-vertex-ui
-docker stop denoise-vertex-ui
+make -f deploy/vertex/Makefile ui-check
+make -f deploy/vertex/Makefile ui-start   # 已有容器时拒绝覆盖
+make -f deploy/vertex/Makefile ui-status
+make -f deploy/vertex/Makefile ui-logs
+bash deploy/vertex/read-cloud.sh         # 只读状态与实际副本，不预测
 ```
 
-本机页面停止后，Vertex 的缩容与费用仍由 Endpoint 状态决定。页面没有额外的用户登录层，只供能够访问该内网端口的内部人员使用。
+已存在的正确容器在人工停止后恢复时，先检查 `ui-status`，再使用
+`docker start denoise-vertex-ui`；需要停止新入口时使用
+`docker stop denoise-vertex-ui`。`ui-start` 不重建现有容器。
+
+容器 `denoise-vertex-ui` 以 UID/GID `1003:1003` 运行，只读挂载当前
+`internal_ui.py` 和本机 ADC，设置 `NVIDIA_VISIBLE_DEVICES=void`、
+清空 `CUDA_VISIBLE_DEVICES`。实测无 `/dev/nvidia*`，DeviceRequests 为空，
+仅发布到 work1 实际内网 IP，`share=False`。保留英文界面和 11 个模型目录；
+未部署的 10 个选项禁用。当前云端只支持 Cylinderhead final。
+
+2026-11-18 真实页面验收：64×64 冷请求全流程 231.861 秒，云端 1.835 秒；
+1518×1518 TIFF 全流程 51.755 秒，云端 47.361 秒。均成功下载尺寸一致的
+uint16 TIFF，返回模型标识匹配。测试从 work1 经其内网 URL 发起；另外从
+物理主机 gpu01 实测新页面 HTTP 200 和 11 个预设。Mac 浏览器尚未代测。
+本轮新采样已确认 14:18:14 JST 副本为 0，距最后成功预测 370.562 秒；
+详细证据见 [迁移记录](../../docs/deploy/work1-migration-20261118.md)。
+
+旧 work1 `denoise-demo` 与旧 gpu01 `denoise-vertex-ui` 均在新页面验收后停止，
+未删除容器、镜像或 NFS 文件。回退时先停止 work1 新入口，确认旧配置后
+可在 gpu01 使用 `docker start denoise-vertex-ui`；需要旧本地 GPU demo 时
+另行明确选择，不能将其误认为 CPU→Vertex 页面。
+
+## 完整训练与大文件上传
+
+[训练操作说明](training/README.md) 提供显式手动提交的 8 步真实数据验收、
+数据预检、归档、work1 直接上传 GCS、按实际显存选择单卡/多卡、周期备份与恢复。
+当前固定训练镜像为：
+
+```text
+asia-northeast1-docker.pkg.dev/hallowed-pipe-497802-i0/denoise/denoise-vertex-training@sha256:458483e3a2fb73d5c3e5083b5e39217b970de69c1c994c7936072ed4cdc2adb3
+```
+
+镜像默认只显示帮助，本地检查均禁止 GPU 注入。2026-11-18 的实际云端短训练
+已成功完成，见[真实短训练验收及手动复现](../../docs/deploy/training-acceptance-20261118.md)
+及 `docs/deploy/training-readiness-20261118/`；不要将其等同于正式模型训练
+完成。正式长训练未启动，完整数据未上传，线上推理模型未替换。
+原四张 V100 并非固定需求；单卡 batch 1 的优化行为与原 batch 16 不等价。
+现有服务账号和私有桶继续复用，未修改 IAM。
+
+[东京 GPU 与配额申请草案](../../docs/deploy/training-gpu-quota-request-20261118.md)
+区分训练支持、配额和实际库存；申请尚未提交。
+[同事内网上传设计](../../docs/deploy/internal-xray-workflow-design-20261118.md)
+说明断点接收、审核、GCS 同步和手动训练流程；新上传门户尚未实施。
 
 ## 本地适配验证
 
 本地适配验证使用独立 `--rm` 容器和一张空闲 GPU，不发布宿主端口。训练 smoke 运行两次更新并确认 checkpoint 权重变化；服务测试检查 `/health`、`/predict`、正式 final 预设，以及 base64 输出确为尺寸一致的 16 位 TIFF。本地检查用于发现适配问题；真实 Vertex 训练、部署和页面推理结果分别以上方对应的云端验收记录为依据。
 
 依据：[创建 CustomJob](https://docs.cloud.google.com/vertex-ai/docs/training/create-custom-job)、[自定义预测容器协议](https://docs.cloud.google.com/vertex-ai/docs/predictions/custom-container-requirements)。
+
+## 旧界面详情整合
+
+当前页面恢复模型/checkpoint 元数据、图片详情与云端 GPU 配置及副本监控。
+详见 [界面、目录、环境与 Git 状态](../../docs/deploy/work1-ui-consolidation-20261118.md)。
+旧本机 GPU Compose 仅保留显式历史 profile；当前入口仍为 work1:7861。

@@ -1,0 +1,7 @@
+{
+  "source_host": "gpu01",
+  "target": "http://192.168.3.11:7861/config",
+  "http_status": 200,
+  "preset_count": 11,
+  "observed_utc": "2026-11-18T05:05:50.634478+00:00"
+}

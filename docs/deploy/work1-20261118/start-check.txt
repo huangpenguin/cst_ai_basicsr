@@ -1,0 +1,7 @@
+bash deploy/vertex/start-internal-ui.sh --check
+Docker storage: /var/lib/docker
+Cached image: sha256:c5a18e2e2fdda2d1c0b4795c0aba58a11581d268edc4bcf4360853ccbb31efc4 (28423078506 bytes)
+NFS source: /mnt/home/huang/code/cst_ai/BasicSR
+Frontend: http://192.168.3.11:7861
+Container: denoise-vertex-ui
+Prerequisites passed. No container, token exchange, or cloud operation was started.

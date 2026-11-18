@@ -4,9 +4,23 @@
 
 - **模型**：SwinIR-M（官方 grayDN noise25 初始化）配对微调；TSFDAN 双分支 + LoRA 变体。
 - **数据**：同名 LQ/GT 灰度 TIFF 对（battery、cylinder、phantom、ALcast、Cylinderhead）；各批次的配准情况见实验记录。
-- **流程**：整理数据对 → 校验划分 → 在 gpu01 上按训练 YAML 启动训练 → 固定评测集出面板和指标表 → Gradio 演示。
+- **流程**：整理数据对 → 审核配对与划分 → 手动提交 Vertex 训练 → 固定评测集验证 → 发布到现有 Vertex 推理入口。
 
-## 快速开始
+## 当前部署入口
+
+内网页面：http://192.168.3.11:7861 。在 work1 管理：
+
+```bash
+cd /mnt/home/huang/code/cst_ai/BasicSR
+make -f deploy/vertex/Makefile ui-status
+make -f deploy/vertex/Makefile ui-check
+```
+
+页面依赖位于 work1 Docker 镜像内（Python 3.11 / Torch 2.6 / Gradio 6.25），
+不要求给宿主 Python 安装 Torch。GPU 推理和训练运行在 Vertex。
+详见 [当前运行与界面整合](docs/deploy/work1-ui-consolidation-20261118.md)。
+
+## 源码开发与历史本地工作流（不是当前服务启动步骤）
 
 ```bash
 uv sync --dev
@@ -30,8 +44,9 @@ uv run python scripts/infer/infer_swinir_graydn_tiff.py --model <ckpt> \
   --baseline-model experiments/pretrained_models/SwinIR/004_grayDN_DFWB_s128w8_SwinIR-M_noise25.pth \
   --lq-dir <LQ> --gt-dir <GT> --output-dir <out>
 
-# 去噪演示（0.0.0.0:7860）
-uv run python apps/denoise_demo/app.py
+# 当前内网 CPU → Vertex 页面（http://192.168.3.11:7861）
+make -f deploy/vertex/Makefile ui-status
+make -f deploy/vertex/Makefile ui-check
 ```
 
 ## 项目要点：uint16 预处理与单通道模型
@@ -88,19 +103,19 @@ docs/                项目文档；docs/upstream/ 为 BasicSR 原版文档
 ## 实际存放位置与 Git 提交
 
 **主 Git 工作副本为 `/mnt/home/huang/code/cst_ai/BasicSR`，分支为 `master`。**
-gpu01（192.168.3.18，4×V100）负责训练，work1（192.168.3.11，RTX 2080 Ti）运行 Demo；两台机器读取同一份 NFS 源码。
+当前 work1（192.168.3.11）运行 CPU Gradio 容器，推理和手动训练使用东京 Vertex GPU；不注入 work1 本机显卡。gpu01 的四卡训练与 work1 的本机 GPU Demo 为历史部署，旧页面已停止。
 
 | 位置 | 内容与用途 | 本仓库 push 是否包含 |
 |------|------------|----------------------|
 | `/mnt/home/huang/code/cst_ai/BasicSR` | 源码、项目文档、通用训练配置、Demo 模型注册表 | 已提交的 Git 跟踪文件会包含 |
 | `scripts/workflows/cylinderhead_20261104/`（本仓库内） | 本次 data / training / evaluation / demo / config 的统一代码入口 | 作为源码提交，数据与权重除外 |
-| `/home/huang/scripts/basicsr-demo`（work1） | 已运行的 Compose 入口；目录链接到上述 `demo/`，保留完整构建上下文 | 直接使用主仓库已提交文件 |
-| `/home/huang/scripts/cylinderhead-*`（work1） | 历史辅助目录的兼容链接，指向 NFS 归档；内部源码入口仍链接到主仓库 | 源码由 Git 管理，历史分析产物在 NFS 归档 |
+| `deploy/vertex/`（本仓库内） | 当前 CPU 页面、Vertex 管理及训练入口 | 需 commit/push 后才会发布新增改动 |
+| `/home/huang/scripts/basicsr-demo` 与 `cylinderhead-*` | 旧兼容链接已移除，不再作为部署入口 | 历史源码仍在本仓库，分析产物保留 NFS |
 | `/mnt/data/cst_ai/datasets` | 原始 ZIP、mean3 GT、配对数据与独立 test，均使用带时间戳的目录 | 不包含，位于仓库外 |
 | `/mnt/home/huang/cst_ai/experiments` | 实验目录：冻结源码、实际配置、日志、模型、评估结果 | 不包含，位于仓库外 |
 | `/mnt/home/huang/cst_ai/demo_models` | 带时间戳的 Demo 发布权重 | 不包含，位于仓库外 |
 
-`/home/huang/scripts` 本身不是 Git 仓库；其中 `tools` 存放下载工具，`kintai`、`trading system` 是其他项目。本次过程代码已集中到 [`scripts/workflows/cylinderhead_20261104/`](scripts/workflows/cylinderhead_20261104/README.md)，包含执行顺序、配置、容器路径契约和实验产物入口。原本分散的数据、训练和评估脚本通过符号链接保持兼容；三个历史辅助目录及分析产物归档于 `/mnt/home/huang/cst_ai/archive/scripts-closeout-20261118/`。Demo 的本地目录直接链接到本仓库 `demo/`，使用同一份完整构建上下文。OAuth 凭据仍保存在主机用户配置中，独立于源码与数据。
+`/home/huang/scripts` 本身不是 Git 仓库；其中 `tools` 存放下载工具，`kintai`、`trading system` 是其他项目。本次过程代码已集中到 [`scripts/workflows/cylinderhead_20261104/`](scripts/workflows/cylinderhead_20261104/README.md)，包含执行顺序、配置、容器路径契约和实验产物入口。旧的本机兼容目录链接已经移除；三个历史辅助目录及分析产物归档于 `/mnt/home/huang/cst_ai/archive/scripts-closeout-20261118/`。旧 Demo Compose 仅保留显式 `legacy-local-gpu` profile，默认不启动；当前部署统一使用 `deploy/vertex/`。OAuth 凭据仍保存在主机用户配置中，独立于源码与数据。
 
 本次实验的定位入口：
 
@@ -109,7 +124,7 @@ gpu01（192.168.3.18，4×V100）负责训练，work1（192.168.3.11，RTX 2080 
 - 实验根目录：`/mnt/home/huang/cst_ai/experiments/cylinderhead_300kv_mean3_20261104_173035_JST`；`control/train.yml` 为本次实际配置，`control/` 为执行脚本，`artifacts/` 为训练产物，`test_preview/` 为 40 张去噪 TIFF、对比 PNG 和 `summary.json`，`resource_review/` 为资源测量记录。
 - 实验目录的 `code/` 是提交 `41d7bfd` 的冻结源码快照，没有 `.git`；后续改代码、commit、push 均回到主工作副本。
 - 最终权重：`/mnt/home/huang/cst_ai/demo_models/SwinIR_Cylinderhead_mean3_20261105_054425_JST_final_i30000.pth`（Demo 使用 `params_ema`）。
-- Demo：<http://192.168.3.11:7860/>，选择 `Cylinderhead mean3 | 2026-11-05 05:44 JST | FINAL step 30000`。
+- 当前 Vertex 页面：<http://192.168.3.11:7861/>，选择 `Cylinderhead mean3 | 2026-11-05 05:44 JST | FINAL step 30000`。
 
 远端 `gitlab` 指向 `jil_atr/basicsr`，`github` 指向 `huangpenguin/cst_ai_basicsr`，`upstream` 为 XPixelGroup/BasicSR。`all` 的两个 push URL 分别为自己的 GitLab 和 GitHub 仓库。操作示例：
 
@@ -143,3 +158,5 @@ git push all master
 - [docs/upstream/](docs/upstream/)：BasicSR 上游 README 与文档
 
 本项目沿用 BasicSR 的 [Apache 2.0 许可](LICENSE.txt)，引用信息见 `CITATION.cff`。
+
+当前运行环境、界面整合与 Git 状态见 [work1 界面整合记录](docs/deploy/work1-ui-consolidation-20261118.md)。

@@ -1,0 +1,14 @@
+# Publish reviewed text evidence only; raw diagnostics/data stay on NFS.
+*
+!.gitignore
+!cross-host.json
+!full.json
+!small.json
+!idle-final.json
+!old-gpu01-cutover.json
+!old-work1-cutover.json
+!runtime.json
+!frontend-final-config.json
+!ui-consolidation.json
+!ui-consolidation-tests.txt
+!start-check.txt

@@ -1,0 +1,459 @@
+{
+  "input": {
+    "shape": [
+      64,
+      64
+    ],
+    "dtype": "uint16"
+  },
+  "started_utc": "2026-11-18T09:12:03.781426+00:00",
+  "initial_replica_sample": {
+    "interval": {
+      "startTime": "2026-11-18T09:09:14.040Z",
+      "endTime": "2026-11-18T09:09:14.040Z"
+    },
+    "value": {
+      "int64Value": "0"
+    }
+  },
+  "events": [
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:12:04.105340+00:00",
+      "stage": "before",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+        "lastUpdateTime": "2026-11-18T09:11:51.858523Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:12:04.566579+00:00",
+      "stage": "cold",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:12:04.746590+00:00",
+      "stage": "warming",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+        "lastUpdateTime": "2026-11-18T09:11:51.858523Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:12:19.959054+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:12:35.187028+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:12:35.377432+00:00",
+      "stage": "warming",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+        "lastUpdateTime": "2026-11-18T09:12:22.009519Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:12:50.644934+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:13:05.896824+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:13:06.122598+00:00",
+      "stage": "warming",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+        "lastUpdateTime": "2026-11-18T09:12:52.124596Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:13:21.440494+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:13:36.668724+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:13:36.821640+00:00",
+      "stage": "warming",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+        "lastUpdateTime": "2026-11-18T09:13:22.270173Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:13:52.051039+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:14:07.249869+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:14:07.498080+00:00",
+      "stage": "warming",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+        "lastUpdateTime": "2026-11-18T09:13:52.318403Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:14:22.761199+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:14:38.024368+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:14:38.289695+00:00",
+      "stage": "warming",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+        "lastUpdateTime": "2026-11-18T09:14:22.391059Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:14:53.582330+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:15:08.777186+00:00",
+      "stage": "cold-retry",
+      "http_status": 429,
+      "error": "Model is not yet ready for inference. Please wait while model completes scale-up from zero, then try your request again."
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:15:08.947905+00:00",
+      "stage": "warming",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "message": "Model server never became ready. Please validate that your model file or container configuration are valid. To view model server logs, please set enableContainerLogging when deploying your model (https://cloud.google.com/ai-platform-unified/docs/reference/rest/v1/projects.locations.endpoints#deployedmodel).",
+        "lastUpdateTime": "2026-11-18T09:14:52.443462Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:15:25.857970+00:00",
+      "stage": "cold-retry",
+      "http_status": 200,
+      "preset": "swinir_cylinderhead_mean3_20261104_173035",
+      "device": "cuda",
+      "cloud_seconds": 1.635,
+      "output_shape": [
+        64,
+        64
+      ],
+      "output_dtype": "uint16"
+    },
+    {
+      "kind": "cold_complete",
+      "utc": "2026-11-18T09:15:25.860243+00:00",
+      "elapsed_seconds": 201.754
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:15:26.109810+00:00",
+      "stage": "after_cold",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "lastUpdateTime": "2026-11-18T09:15:22.565644Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "prediction",
+      "utc": "2026-11-18T09:15:26.537583+00:00",
+      "stage": "warm",
+      "http_status": 200,
+      "preset": "swinir_cylinderhead_mean3_20261104_173035",
+      "device": "cuda",
+      "cloud_seconds": 0.13,
+      "output_shape": [
+        64,
+        64
+      ],
+      "output_dtype": "uint16"
+    },
+    {
+      "kind": "control",
+      "utc": "2026-11-18T09:15:26.790847+00:00",
+      "stage": "after_warm",
+      "deployed_model_id": "1239217774224474112",
+      "status": {
+        "lastUpdateTime": "2026-11-18T09:15:22.565644Z"
+      },
+      "container_logging_disabled": true
+    },
+    {
+      "kind": "testing_stopped",
+      "utc": "2026-11-18T09:15:26.793048+00:00"
+    }
+  ],
+  "last_prediction_utc": "2026-11-18T09:15:26.793027+00:00",
+  "logging_query_matches": 0,
+  "container_logging_enabled": false,
+  "idle_observations": [
+    {
+      "observed_utc": "2026-11-18T09:16:20.406561+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:15:52.623956Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:15:14.040Z",
+          "sample_age_seconds": 66,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:17:05.868190+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:16:52.844282Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:15:14.040Z",
+          "sample_age_seconds": 112,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:17:51.202840+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:17:22.896196Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:16:14.040Z",
+          "sample_age_seconds": 97,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:18:36.687975+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:18:23.186939Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:17:14.040Z",
+          "sample_age_seconds": 83,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:19:22.095170+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:18:53.257925Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:18:14.040Z",
+          "sample_age_seconds": 68,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:20:07.409413+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:19:53.451882Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:18:14.040Z",
+          "sample_age_seconds": 113,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:20:52.834138+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:20:23.513700Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:19:14.040Z",
+          "sample_age_seconds": 99,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:21:38.188034+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:21:23.769043Z",
+          "availableReplicaCount": 1
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "1"
+          },
+          "sample_utc": "2026-11-18T09:20:14.040Z",
+          "sample_age_seconds": 84,
+          "stale": false
+        }
+      ]
+    },
+    {
+      "observed_utc": "2026-11-18T09:22:23.504054+00:00",
+      "deployment_status": [
+        {
+          "lastUpdateTime": "2026-11-18T09:21:53.821065Z"
+        }
+      ],
+      "replica_samples": [
+        {
+          "deployed_model_id": "1239217774224474112",
+          "replicas": {
+            "int64Value": "0"
+          },
+          "sample_utc": "2026-11-18T09:21:14.040Z",
+          "sample_age_seconds": 69,
+          "stale": false
+        }
+      ]
+    }
+  ],
+  "idle_zero_confirmed": true,
+  "seconds_last_prediction_to_zero_sample": 347.247,
+  "final_read_only_check": {
+    "observed_utc": "2026-11-18T09:25:23.637264+00:00",
+    "status": {
+      "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+      "lastUpdateTime": "2026-11-18T09:24:54.643434Z"
+    },
+    "latest_replica_sample": {
+      "interval": {
+        "startTime": "2026-11-18T09:24:14.040Z",
+        "endTime": "2026-11-18T09:24:14.040Z"
+      },
+      "value": {
+        "int64Value": "0"
+      }
+    }
+  }
+}

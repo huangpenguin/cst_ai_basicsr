@@ -1,0 +1,54 @@
+{
+  "serviceAccount": "denoise-vertex@hallowed-pipe-497802-i0.iam.gserviceaccount.com",
+  "baseOutputDirectory": {
+    "outputUriPrefix": "gs://hallowed-pipe-497802-i0-denoise-vertex/training-readiness/acceptance-20261118T083239Z"
+  },
+  "workerPoolSpecs": [
+    {
+      "machineSpec": {
+        "machineType": "n1-standard-8",
+        "acceleratorType": "NVIDIA_TESLA_T4",
+        "acceleratorCount": 1
+      },
+      "replicaCount": "1",
+      "diskSpec": {
+        "bootDiskType": "pd-ssd",
+        "bootDiskSizeGb": 150
+      },
+      "containerSpec": {
+        "imageUri": "asia-northeast1-docker.pkg.dev/hallowed-pipe-497802-i0/denoise/denoise-vertex-training@sha256:458483e3a2fb73d5c3e5083b5e39217b970de69c1c994c7936072ed4cdc2adb3",
+        "args": [
+          "python",
+          "/opt/vertex/training/train_full.py",
+          "--data-uri",
+          "gs://hallowed-pipe-497802-i0-denoise-vertex/datasets/acceptance-2ca67152392c4ce8/dataset.tar",
+          "--data-sha256",
+          "2ca67152392c4ce8a270982038369367e8c02912f07aaad8f6ddc75ad2208c94",
+          "--output-uri",
+          "gs://hallowed-pipe-497802-i0-denoise-vertex/training-readiness/acceptance-20261118T083239Z",
+          "--mode",
+          "acceptance",
+          "--gpu-count",
+          "1",
+          "--batch-per-gpu",
+          "1",
+          "--iterations",
+          "8",
+          "--crop-size",
+          "128",
+          "--validation-tile",
+          "128",
+          "--validation-max",
+          "1",
+          "--validation-interval",
+          "4"
+        ]
+      }
+    }
+  ],
+  "scheduling": {
+    "timeout": "1800s",
+    "disableRetries": true,
+    "restartJobOnWorkerRestart": false
+  }
+}

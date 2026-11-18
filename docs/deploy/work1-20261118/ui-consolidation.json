@@ -1,0 +1,69 @@
+{
+  "status": "PASS",
+  "page_title": "CT Denoise",
+  "input_details": {
+    "filename": "merged-ui-test.tif",
+    "format": "TIFF",
+    "width": 2,
+    "height": 2,
+    "pages": 1,
+    "mode": "I;16",
+    "dtype": "uint16",
+    "shape": [
+      2,
+      2
+    ],
+    "file_bytes": 130,
+    "pixel_min": 0.0,
+    "pixel_max": 65535.0,
+    "pixel_mean": 24639.75,
+    "preview": "8-bit display only; original input pixels are preserved"
+  },
+  "checkpoint_inspection": "OK",
+  "checkpoint_tensor_count": 544,
+  "cloud": {
+    "frontend": "work1 CPU frontend; local GPU access disabled",
+    "region": "asia-northeast1",
+    "endpoint_id": "8911645097217490944",
+    "checked_utc": "2026-11-18T09:01:10.266357+00:00",
+    "prediction_requests_sent": 0,
+    "gpu_memory_and_processes": "Not exposed by this endpoint; not inferred from work1 GPUs.",
+    "status": "Endpoint configuration read successfully",
+    "deployments": [
+      {
+        "deployed_model_id": "1239217774224474112",
+        "model": "projects/580558088344/locations/asia-northeast1/models/6657078912276758528",
+        "display_name": "denoise-final-t4-lean",
+        "control_plane_status": {
+          "message": "System error. Please try this operation again. If the issue persists please visit https://cloud.google.com/support-hub to view your support options.",
+          "lastUpdateTime": "2026-11-18T09:00:49.191847Z"
+        },
+        "machine": {
+          "machineType": "n1-standard-8",
+          "acceleratorType": "NVIDIA_TESLA_T4",
+          "acceleratorCount": 1
+        },
+        "min_replicas": 0,
+        "max_replicas": 1,
+        "scale_to_zero": {
+          "minScaleupPeriod": "300s",
+          "idleScaledownPeriod": "300s"
+        }
+      }
+    ],
+    "replica_samples": [
+      {
+        "deployed_model_id": "1239217774224474112",
+        "replicas": {
+          "int64Value": "0"
+        },
+        "sample_utc": "2026-11-18T08:59:14.040Z",
+        "sample_age_seconds": 116,
+        "stale": false
+      }
+    ],
+    "replica_status": "Sampled monitoring data, not an instantaneous measurement"
+  },
+  "disabled_preset_checked": "swinir_official_n15",
+  "prediction_requests_sent": 0
+}

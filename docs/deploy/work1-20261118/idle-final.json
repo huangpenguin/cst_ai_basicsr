@@ -1,0 +1,20 @@
+{
+  "status": "PASS_FRESH_REPLICA_ONE_THEN_POST_PREDICTION_IDLE_ZERO",
+  "observed_utc": "2026-11-18T05:19:55.351933+00:00",
+  "last_success_completed_utc": "2026-11-18T05:12:03.478094+00:00",
+  "replica_one": {
+    "sample_utc": "2026-11-18T05:17:14.040000+00:00",
+    "value": 1,
+    "source": "idle-observation-05.json"
+  },
+  "replica_zero": {
+    "sample_utc": "2026-11-18T05:18:14.040000+00:00",
+    "value": 0,
+    "source": "idle-observation-06.json"
+  },
+  "seconds_after_last_success": 370.561906,
+  "additional_test_predictions_sent": 0,
+  "endpoint_status": {
+    "lastUpdateTime": "2026-11-18T05:19:26.371876Z"
+  }
+}

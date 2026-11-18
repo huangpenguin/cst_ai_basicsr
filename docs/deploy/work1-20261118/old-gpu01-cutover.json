@@ -1,0 +1,17 @@
+{
+  "host": "gpu01",
+  "stopped_utc": "2026-11-18T05:14:12.862246+00:00",
+  "name": "denoise-vertex-ui",
+  "verified_endpoint": "https://8911645097217490944.asia-northeast1-580558088344.prediction.vertexai.goog/v1/projects/580558088344/locations/asia-northeast1/endpoints/8911645097217490944:predict",
+  "image_id": "sha256:c5a18e2e2fdda2d1c0b4795c0aba58a11581d268edc4bcf4360853ccbb31efc4",
+  "old_port_bindings": {
+    "7860/tcp": [
+      {
+        "HostIp": "192.168.3.18",
+        "HostPort": "7860"
+      }
+    ]
+  },
+  "running_after": false,
+  "container_deleted": false
+}

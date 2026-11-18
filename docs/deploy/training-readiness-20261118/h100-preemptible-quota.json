@@ -1,0 +1,23 @@
+{
+  "source": "2026-11-18 project quota snapshot",
+  "metrics": [
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_preemptible_nvidia_h100_gpus",
+      "display_name": "Custom model training preemptible Nvidia H100 GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    },
+    {
+      "metric": "aiplatform.googleapis.com/custom_model_training_preemptible_nvidia_h100_mega_gpus",
+      "display_name": "Custom model training preemptible Nvidia H100 Mega GPUs",
+      "tokyo": {
+        "dimensions": {
+          "region": "asia-northeast1"
+        }
+      }
+    }
+  ]
+}

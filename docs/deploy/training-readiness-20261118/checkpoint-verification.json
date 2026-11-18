@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "local_cuda_available": false,
+  "optimizer_iteration": 8,
+  "optimizer_tensor_count": 490,
+  "all_optimizer_steps": 8,
+  "scheduler_count": 1,
+  "all_saved_model_tensors_finite": true,
+  "latest_matches_step_8": true,
+  "latest_checkpoint_sha256": "06dcddb1497f2714dd0efb877d23919407defc45d3bb9cd16c76db3bc161c0a5",
+  "optimizer_updates": 8,
+  "validation_calls": 2,
+  "weights_changed": true
+}

@@ -1,0 +1,20 @@
+请在当前 work1 服务器上，完成 BasicSR 内网 Gradio 页面从 gpu01 到 work1 的迁移。页面只用 CPU，模型推理继续调用已经部署的 Google Vertex GPU。
+
+先阅读共享 NFS 中的交接说明：
+/mnt/home/huang/code/cst_ai/BasicSR/docs/deploy/work1-migration-handoff-20261118.md
+
+工作区：/mnt/home/huang/code/cst_ai/BasicSR
+启动脚本：deploy/vertex/start-internal-ui.sh
+当前部署源码基线：ee5f33dedb31658dbbff8d54b355cf65b3e6d2cd；工作区可能有之后的新增迁移文件或其他会话修改，不要强制 checkout、清理或覆盖。
+
+执行要求：
+1. 先确认当前主机、work1 实际内网 IP、/mnt/home 的真实 nfs/nfs4 挂载与写权限。直接使用共享代码；未挂载时不要在同名本地目录创建新副本。不移动或删除代码、权重、数据。
+2. 检查 Docker、存储空间和端口；复用交接文件固定 digest 的 denoise-vertex 镜像，没有则从 Artifact Registry 拉取。页面不使用精简 GPU 推理镜像，不安装或升级宿主 Torch/CUDA。
+3. 使用 work1 上已有、获准的 authorized_user ADC。旧 gpu01 的 ADC 位于本地盘，不是 NFS；不要假定相同路径下已有凭据，不输出凭据或 token，也不要写到 Git、镜像、共享交接目录。没有合法认证时先完成其他准备，再说明需要用户完成什么登录。
+4. 按启动脚本设置 UI_BIND_IP 和 UI_ADC_PATH，先 --check 再启动。保留 NVIDIA_VISIBLE_DEVICES=void，使用匹配本机权限的 UID/GID，只发布到内网 IP，share=False。保留英文界面、11 个预设目录及未部署模型禁用逻辑。
+5. 复用项目 hallowed-pipe-497802-i0、东京 asia-northeast1、Endpoint 8911645097217490944。只有 Cylinderhead final 已部署。不要把迁移扩大为多模型重部署、正式训练、新建 VM/Cloud Run、域名或云资源重建。
+6. 已授权做完成迁移所需的小图和1518 TIFF真实预测验证，会产生新的云端用量。先读当前 Endpoint 状态，再验证页面→Vertex→下载、模型 ID、尺寸与 uint16 TIFF，确认容器无 GPU。历史 System error 仍需重新核对；不要只靠 HTTP 200 或昨天的结果宣称推理可用。
+7. 新入口验收成功后，若有已验证的 SSH 访问能力，检查 gpu01 旧容器仍属于本部署再停止旧页面；不能连接时保留旧入口并明确报告。不要删除旧容器、镜像、NFS 数据或凭据。不要关闭其他服务。
+8. 输出 work1 新 URL、实际镜像/端口/身份主体、测试数据与耗时、旧入口切换状态、跨物理电脑访问是否实测、以及新的副本归零证据。写入带日期的迁移记录。不额外提交训练或反复预测；结束时停止测试流量。
+
+请直接执行已经明确且可完成的步骤。只对确实缺失的登录信息、访问能力或外部条件提出问题，不需要再次询问是否开始迁移。
