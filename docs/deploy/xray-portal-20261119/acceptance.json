@@ -1,0 +1,89 @@
+{
+  "verified_at": "2026-11-19T10:04:51.473Z",
+  "url": "http://192.168.3.11:7862",
+  "batch_id": "af6943e37c1f542014d74df2",
+  "status": "cloud_ready",
+  "condition_zip_count": 5,
+  "candidate_pairs": 5,
+  "approved_train_pairs": 4,
+  "approved_monitor_pairs": 1,
+  "test_in_archive": false,
+  "original_tiff_download": {
+    "status": 200,
+    "content_hash_matches": true,
+    "sha256": "cfbc54ee56a2bce7fcc4eb1164a9375a98e6a74e760ab9bef93908be8b563d9b"
+  },
+  "browser_errors": [],
+  "version_id": "03eb5cc6515ce309a5c40410514e4c28",
+  "counts": {
+    "train": 4,
+    "monitor": 1,
+    "test": 0
+  },
+  "archive": {
+    "uri": "gs://hallowed-pipe-497802-i0-denoise-vertex/datasets/portal/03eb5cc6515ce309a5c40410514e4c28/dataset.tar",
+    "size": 46120960,
+    "sha256": "49a98fcba6c850f3ce406a352d8175cd6e1a8e971d747268a470aa56fbf084b8",
+    "crc32c": "Z5OAwQ==",
+    "generation": "1795082465204829"
+  },
+  "review_origin": "Previously authorized five-pair acceptance subset; source pixels and existing train/monitor assignments retained.",
+  "training_started": false,
+  "review_required_for_new_data": true,
+  "backend_tests_passed": 71,
+  "browser_regression_checks_passed": 14,
+  "application_image_id": "sha256:59a1917d67ed7d11086465ba38c47efa03dc7a37fee4c71070461e6b347f983e",
+  "runtime_during_large_upload": {
+    "captured_at_unix": 1795083330.7249556,
+    "containers": [
+      {
+        "name": "/basicsr-xray-portal-api-1",
+        "runtime": "runc",
+        "gpu_requests": null,
+        "memory_limit": 1073741824,
+        "devices": null,
+        "ports": {},
+        "cgroup_memory_peak_including_cache": 46280704
+      },
+      {
+        "name": "/basicsr-xray-portal-worker-1",
+        "runtime": "runc",
+        "gpu_requests": null,
+        "memory_limit": 4294967296,
+        "devices": null,
+        "ports": {},
+        "cgroup_memory_peak_including_cache": 300158976
+      },
+      {
+        "name": "/basicsr-xray-portal-tusd-1",
+        "runtime": "runc",
+        "gpu_requests": null,
+        "memory_limit": 536870912,
+        "devices": null,
+        "ports": {
+          "8080/tcp": null
+        },
+        "cgroup_memory_peak_including_cache": 540225536
+      },
+      {
+        "name": "/basicsr-xray-portal-proxy-1",
+        "runtime": "runc",
+        "gpu_requests": null,
+        "memory_limit": 268435456,
+        "devices": null,
+        "ports": {
+          "80/tcp": null,
+          "8080/tcp": [
+            {
+              "HostIp": "192.168.3.11",
+              "HostPort": "7862"
+            }
+          ]
+        },
+        "cgroup_memory_peak_including_cache": 53055488
+      }
+    ]
+  },
+  "large_upload_scope": "Synthetic 20GiB condition ZIP over real HTTP tus; restart and new-session resume; independent NFS SHA256. Not extracted or uploaded to cloud.",
+  "production_code": "Baked into Docker image; no mutable source bind mount"
+}

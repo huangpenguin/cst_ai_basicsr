@@ -1,0 +1,12 @@
+.env*
+portal.env
+admin-password.txt
+application_default_credentials.json
+*.sqlite*
+*.tif
+*.tiff
+*.zip
+*.tar
+state/
+intake/
+node_modules/

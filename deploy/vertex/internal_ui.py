@@ -259,7 +259,8 @@ with gr.Blocks(title="CT Denoise", delete_cache=(600, 3600)) as demo:
     gr.Markdown(
         "# CT Grayscale Denoise\n"
         "Upload 8-bit PNG/JPEG or uint16 TIFF. RGB uses channel 0. "
-        "Inference runs on the Vertex AI GPU; the first request after idle requires a cold start."
+        "Inference runs on the Vertex AI GPU; the first request after idle requires a cold start.\n\n"
+        "[Submit scans and reference images for review](http://192.168.3.11:7862)"
     )
     preset = gr.Dropdown(
         choices=[

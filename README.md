@@ -8,7 +8,9 @@
 
 ## 当前部署入口
 
-内网页面：http://192.168.3.11:7861 。在 work1 管理：
+去噪页面：http://192.168.3.11:7861 。扫描上传与配对审核：http://192.168.3.11:7862 。
+上传门户支持按拍摄条件提交 TIFF/ZIP、断点续传、人工审核与批准后同步 GCS；详见
+[同事上传与管理员审核操作](docs/deploy/xray-portal-operations-20261119.md)。在 work1 管理：
 
 ```bash
 cd /mnt/home/huang/code/cst_ai/BasicSR

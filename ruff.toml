@@ -13,6 +13,9 @@ include = [
   "apps/denoise_demo/*.py",
   "scripts/workflows/cylinderhead_20261104/**/*.py",
   "deploy/vertex/*.py",
+  "apps/xray_portal/**/*.py",
+  "tests/test_xray_portal*.py",
+  "deploy/internal/*.py",
 ]
 
 [lint]

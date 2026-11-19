@@ -1,0 +1,155 @@
+{
+  "completed_at_utc": "2026-11-19T10:06:27.898760+00:00",
+  "version_id": "resume-acceptance-20261119-67e23013",
+  "bucket": "hallowed-pipe-497802-i0-denoise-vertex",
+  "synthetic_only_upload": true,
+  "training_started": false,
+  "archive": {
+    "size": 25190400,
+    "sha256": "c0c7eac115f0bc8b4d6fe1dfac871b63d52f62043bb97f9b5bb8bfa98cd4936b",
+    "crc32c": "hUjh2g=="
+  },
+  "lost_response_after_acknowledged_bytes": 8388608,
+  "private_session_mode": "0600",
+  "resume_query_offset": 8388608,
+  "resumed_chunk_start": 8388608,
+  "uploaded_generation": "1795082770241043",
+  "commit_manifest_uri": "gs://hallowed-pipe-497802-i0-denoise-vertex/datasets/portal/resume-acceptance-20261119-67e23013/cloud-manifest.json",
+  "synthetic_download": {
+    "object": "datasets/portal/resume-acceptance-20261119-67e23013/dataset.tar",
+    "http_status": 200,
+    "size": 25190400,
+    "sha256": "c0c7eac115f0bc8b4d6fe1dfac871b63d52f62043bb97f9b5bb8bfa98cd4936b",
+    "crc32c": "hUjh2g==",
+    "generation": "1795082770241043",
+    "saved_to_disk": false,
+    "verified": true
+  },
+  "existing_reviewed_dataset_download": {
+    "object": "datasets/portal/03eb5cc6515ce309a5c40410514e4c28/dataset.tar",
+    "http_status": 200,
+    "size": 46120960,
+    "sha256": "49a98fcba6c850f3ce406a352d8175cd6e1a8e971d747268a470aa56fbf084b8",
+    "crc32c": "Z5OAwQ==",
+    "generation": "1795082465204829",
+    "saved_to_disk": false,
+    "verified": true
+  },
+  "trace": [
+    {
+      "run": 1,
+      "method": "GET",
+      "http_status": 404
+    },
+    {
+      "run": 1,
+      "method": "POST",
+      "http_status": 200
+    },
+    {
+      "run": 1,
+      "method": "PUT",
+      "http_status": 308,
+      "content_range": "bytes */25190400"
+    },
+    {
+      "run": 1,
+      "method": "PUT",
+      "http_status": 308,
+      "content_range": "bytes 0-8388607/25190400",
+      "acknowledged_range": "bytes=0-8388607"
+    },
+    {
+      "run": 2,
+      "method": "GET",
+      "http_status": 404
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 308,
+      "content_range": "bytes */25190400",
+      "acknowledged_range": "bytes=0-8388607"
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 308,
+      "content_range": "bytes 8388608-16777215/25190400",
+      "acknowledged_range": "bytes=0-16777215"
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 308,
+      "content_range": "bytes 16777216-25165823/25190400",
+      "acknowledged_range": "bytes=0-25165823"
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 200,
+      "content_range": "bytes 25165824-25190399/25190400"
+    },
+    {
+      "run": 2,
+      "method": "GET",
+      "http_status": 200
+    },
+    {
+      "run": 2,
+      "method": "GET",
+      "http_status": 404
+    },
+    {
+      "run": 2,
+      "method": "POST",
+      "http_status": 200
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 308,
+      "content_range": "bytes */142"
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 200,
+      "content_range": "bytes 0-141/142"
+    },
+    {
+      "run": 2,
+      "method": "GET",
+      "http_status": 200
+    },
+    {
+      "run": 2,
+      "method": "GET",
+      "http_status": 404
+    },
+    {
+      "run": 2,
+      "method": "POST",
+      "http_status": 200
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 308,
+      "content_range": "bytes */779"
+    },
+    {
+      "run": 2,
+      "method": "PUT",
+      "http_status": 200,
+      "content_range": "bytes 0-778/779"
+    },
+    {
+      "run": 2,
+      "method": "GET",
+      "http_status": 200
+    }
+  ],
+  "passed": true
+}

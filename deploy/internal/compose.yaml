@@ -1,0 +1,133 @@
+name: basicsr-xray-portal
+x-app: &app
+  image: basicsr-xray-portal:work1
+  build:
+    context: ../../apps/xray_portal
+    dockerfile: ../../deploy/internal/Dockerfile
+  user: "1003:1003"
+  runtime: runc
+  read_only: true
+  restart: unless-stopped
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: ["/tmp:size=512m,mode=1777"]
+  env_file: /home/huang/.config/basicsr-xray-portal/portal.env
+  environment: &environment
+    PORTAL_DATA_ROOT: /data
+    PORTAL_STATE_ROOT: /state
+    PORTAL_CONFIG_ROOT: /config
+    NVIDIA_VISIBLE_DEVICES: void
+    CUDA_VISIBLE_DEVICES: ""
+  volumes: &volumes
+    - type: bind
+      source: /mnt/data/cst_ai/intake
+      target: /data
+      bind: {create_host_path: false}
+    - type: bind
+      source: /home/huang/.local/state/basicsr-xray-portal
+      target: /state
+      bind: {create_host_path: false}
+    - type: bind
+      source: /home/huang/.config/basicsr-xray-portal
+      target: /config
+      read_only: true
+      bind: {create_host_path: false}
+  networks: [portal]
+services:
+  api:
+    <<: *app
+    cpus: 1
+    mem_limit: 1g
+    command: [uvicorn, "apps.xray_portal.app:app", --host, "0.0.0.0", --port, "8000", --no-access-log]
+  worker:
+    <<: *app
+    cpus: 2
+    mem_limit: 4g
+    command: [python, -m, apps.xray_portal.worker]
+    environment:
+      <<: *environment
+      GOOGLE_APPLICATION_CREDENTIALS: /adc.json
+      PORTAL_CLOUD_STATE_ROOT: /cloud-state
+    volumes:
+      - type: bind
+        source: /mnt/data/cst_ai/intake
+        target: /data
+        bind: {create_host_path: false}
+      - type: bind
+        source: /home/huang/.local/state/basicsr-xray-portal
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: /home/huang/.config/basicsr-xray-portal
+        target: /config
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /home/huang/.local/state/basicsr-xray-portal-cloud
+        target: /cloud-state
+        bind: {create_host_path: false}
+      - type: bind
+        source: /home/huang/.config/basicsr-vertex/application_default_credentials.json
+        target: /adc.json
+        read_only: true
+        bind: {create_host_path: false}
+  tusd:
+    cpus: 1
+    mem_limit: 512m
+    image: tusproject/tusd:v2.8.0@sha256:060f117d224d057a5f25be79b4a4535168a0901515cc20cd02f62d0b8e623f5f
+    user: "1003:1003"
+    runtime: runc
+    read_only: true
+    restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment: {NVIDIA_VISIBLE_DEVICES: void, CUDA_VISIBLE_DEVICES: ""}
+    command:
+      - -host=0.0.0.0
+      - -port=1080
+      - -base-path=/uploads/
+      - -upload-dir=/state/tus
+      - -max-size=34359738368
+      - -behind-proxy
+      - -disable-download
+      - -disable-termination
+      - -hooks-http=http://api:8000/internal/tus
+      - -hooks-enabled-events=pre-create,post-create,pre-finish,post-finish
+      - -hooks-http-forward-headers=X-Portal-Hook-Secret,Cookie,X-CSRF-Token
+      - -show-greeting=false
+      - -verbose=false
+      - -disable-cors
+    volumes:
+      - type: bind
+        source: /mnt/data/cst_ai/intake
+        target: /data
+        bind: {create_host_path: false}
+      - type: bind
+        source: /home/huang/.local/state/basicsr-xray-portal/tus
+        target: /state/tus
+        bind: {create_host_path: false}
+    depends_on: [api]
+    networks: [portal]
+  proxy:
+    cpus: 1
+    mem_limit: 256m
+    image: nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+    runtime: runc
+    read_only: true
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    ports: ["192.168.3.11:7862:8080"]
+    env_file: /home/huang/.config/basicsr-xray-portal/portal.env
+    environment:
+      NGINX_ENVSUBST_FILTER: PORTAL_HOOK_SECRET
+      NVIDIA_VISIBLE_DEVICES: void
+      CUDA_VISIBLE_DEVICES: ""
+    tmpfs: [/var/cache/nginx, /var/run, /etc/nginx/conf.d]
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx-main.conf:/etc/nginx/nginx.conf:ro
+    depends_on: [api, tusd]
+    networks: [portal]
+networks:
+  portal: {}

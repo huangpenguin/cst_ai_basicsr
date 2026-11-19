@@ -1,0 +1,6 @@
+*
+!.gitignore
+!acceptance.json
+!gcs-resume.json
+!large-upload.json
+!tests.txt
